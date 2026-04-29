@@ -272,6 +272,6 @@ class TypedLatestSecret(LatestSecret[T], t.Generic[T, T2]):
         # without casting.
         return (
             t.cast(t.Union[T, T2], secret)
-            if secret is None or secret is default or secret is self.default
-            else self.cast(t.cast(str, secret))
+            if secret is None or not isinstance(secret, str)
+            else self.cast(secret)
         )
