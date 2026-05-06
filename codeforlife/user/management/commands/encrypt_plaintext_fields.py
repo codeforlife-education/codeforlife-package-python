@@ -260,11 +260,11 @@ class Command(BaseCommand):
         for model in models.iterator(chunk_size):
             batch.append(model)
             if len(batch) >= chunk_size:
-                return [batch]
+                yield batch
                 batch = []
 
         if batch:
-            return [batch]
+            yield batch
 
     def _process_model_batch(
         self,
