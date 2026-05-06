@@ -204,11 +204,15 @@ class Command(BaseCommand):
             models = models.exclude(is_active=False)
 
         if model_class._meta.model_name == "class":
-            models = models.exclude(teacher__isnull=True).exclude(
-                teacher__school__isnull=True
+            models = (
+                models.exclude(teacher__isnull=True)
+                .exclude(teacher__school__isnull=True)
+                .exclude(teacher__school__is_active=False)
             )
         elif model_class._meta.model_name == "schoolteacherinvitation":
-            models = models.exclude(school__isnull=True)
+            models = models.exclude(school__isnull=True).exclude(
+                school__is_active=False
+            )
 
         # Exclude default levels, which are shared across users and not
         # encrypted.
@@ -256,11 +260,11 @@ class Command(BaseCommand):
         for model in models.iterator(chunk_size):
             batch.append(model)
             if len(batch) >= chunk_size:
-                yield batch
+                return [batch]
                 batch = []
 
         if batch:
-            yield batch
+            return [batch]
 
     def _process_model_batch(
         self,
