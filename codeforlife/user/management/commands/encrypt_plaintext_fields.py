@@ -186,6 +186,13 @@ class Command(BaseCommand):
         ]:
             models = models.exclude(is_active=False)
 
+        if model_class._meta.model_name == "class":
+            models = models.exclude(teacher__isnull=True).exclude(
+                teacher__school__isnull=True
+            )
+        elif model_class._meta.model_name == "schoolteacherinvitation":
+            models = models.exclude(school__isnull=True)
+
         # Exclude default levels, which are shared across users and not
         # encrypted.
         if model_class._meta.model_name == "level":
