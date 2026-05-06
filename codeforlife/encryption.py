@@ -28,6 +28,7 @@ assertions like `assert_called_once()`.
 """
 
 import typing as t
+from functools import cache
 from io import BytesIO
 from os import urandom
 from unittest.mock import MagicMock, create_autospec
@@ -129,6 +130,7 @@ class FakeGcpKmsClient:
         return mock
 
 
+@cache
 def _get_kek_aead():
     """Get the AEAD primitive for the key encryption key (KEK)."""
     return GcpKmsClient(key_uri=settings.GCP_KMS_KEY_URI()).get_aead(

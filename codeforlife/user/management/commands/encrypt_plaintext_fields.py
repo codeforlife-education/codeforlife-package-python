@@ -4,10 +4,13 @@ Created on 16/03/2026 at 10:58:04(+00:00).
 """
 
 import typing as t
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from threading import Lock
 
 from django.apps import apps
 from django.core.exceptions import FieldDoesNotExist
 from django.core.management.base import BaseCommand
+from django.db import close_old_connections
 from django.db.models import CharField, Field, Model, Q, QuerySet, TextField
 
 from ....encryption import create_dek
@@ -54,6 +57,20 @@ class Command(BaseCommand):
             "--disable-styles",
             action="store_true",
             help="Disable styled output.",
+        )
+        parser.add_argument(
+            "--enable-threading",
+            action="store_true",
+            help=(
+                "Enable threaded processing where each worker handles a "
+                "chunk of rows."
+            ),
+        )
+        parser.add_argument(
+            "--max-workers",
+            type=int,
+            default=4,
+            help="Maximum thread workers when --enable-threading is used.",
         )
 
     # pylint: disable-next=too-many-locals
@@ -200,6 +217,66 @@ class Command(BaseCommand):
 
         return models
 
+    def _update_model_instance(
+        self,
+        model_class: t.Type[Model],
+        model: Model,
+        fields_to_update: FieldsToUpdate,
+    ):
+        update_fields: t.List[str] = []
+
+        # If the model uses DEKs and doesn't have one set, create and assign
+        # a DEK so that it can be used for encrypting fields.
+        if (
+            issubclass(model_class, BaseDataEncryptionKeyModel)
+            and getattr(model, model_class.DEK_FIELD) is None
+        ):
+            setattr(model, model_class.DEK_FIELD, create_dek())
+            update_fields.append(model_class.DEK_FIELD)
+
+        # Iterate through the fields to update and copy the plaintext value
+        # into the encrypted and hash fields as appropriate.
+        for plain_field, enc_field, hash_field in fields_to_update:
+            plaintext = getattr(model, plain_field.name)
+            field_property_name = plain_field.name.removesuffix(
+                "_plain"
+            ).removeprefix("_")
+            setattr(model, field_property_name, plaintext)
+
+            if enc_field is not None:
+                update_fields.append(enc_field.name)
+            if hash_field is not None:
+                update_fields.append(hash_field.name)
+
+        # Save the model with the updated fields.
+        model.save(update_fields=update_fields)
+
+    def _iter_model_batches(self, models: QuerySet[Model], chunk_size: int):
+        batch: t.List[Model] = []
+        for model in models.iterator(chunk_size):
+            batch.append(model)
+            if len(batch) >= chunk_size:
+                yield batch
+                batch = []
+
+        if batch:
+            yield batch
+
+    def _process_model_batch(
+        self,
+        model_class: t.Type[Model],
+        batch: t.List[Model],
+        fields_to_update: FieldsToUpdate,
+    ) -> int:
+        # Ensure this thread has a valid Django DB connection state.
+        close_old_connections()
+
+        for model in batch:
+            self._update_model_instance(model_class, model, fields_to_update)
+
+        close_old_connections()
+        return len(batch)
+
     # pylint: disable-next=too-many-arguments,too-many-positional-arguments
     def _update_models(
         self,
@@ -215,33 +292,62 @@ class Command(BaseCommand):
             if model_index % chunk_size == 0:
                 pprint(f"({model_index}/{model_count})")
 
-            update_fields: t.List[str] = []
+            self._update_model_instance(
+                model_class=model_class,
+                model=model,
+                fields_to_update=fields_to_update,
+            )
 
-            # If the model uses DEKs and doesn't have one set, create and assign
-            # a DEK so that it can be used for encrypting fields.
-            if (
-                issubclass(model_class, BaseDataEncryptionKeyModel)
-                and getattr(model, model_class.DEK_FIELD) is None
-            ):
-                setattr(model, model_class.DEK_FIELD, create_dek())
-                update_fields.append(model_class.DEK_FIELD)
+    # pylint: disable-next=too-many-arguments,too-many-locals,too-many-positional-arguments
+    def _update_models_threaded(
+        self,
+        chunk_size: int,
+        max_workers: int,
+        model_class: t.Type[Model],
+        models: QuerySet[Model],
+        model_count: int,
+        fields_to_update: FieldsToUpdate,
+        pprint: PrettyPrinter,
+    ):
+        progress_lock = Lock()
+        processed_count = 0
+        submitted_batches = 0
+        max_pending_futures = max_workers * 2
 
-            # Iterate through the fields to update and copy the plaintext value
-            # into the encrypted and hash fields as appropriate.
-            for plain_field, enc_field, hash_field in fields_to_update:
-                plaintext = getattr(model, plain_field.name)
-                field_property_name = plain_field.name.removesuffix(
-                    "_plain"
-                ).removeprefix("_")
-                setattr(model, field_property_name, plaintext)
+        def complete_one(future: Future[int]):
+            nonlocal processed_count
+            processed_batch_size = future.result()
+            with progress_lock:
+                processed_count += processed_batch_size
+                pprint(f"({processed_count}/{model_count})")
 
-                if enc_field is not None:
-                    update_fields.append(enc_field.name)
-                if hash_field is not None:
-                    update_fields.append(hash_field.name)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            pending_futures: t.Set[Future[int]] = set()
 
-            # Save the model with the updated fields.
-            model.save(update_fields=update_fields)
+            for batch in self._iter_model_batches(models, chunk_size):
+                pending_futures.add(
+                    executor.submit(
+                        self._process_model_batch,
+                        model_class,
+                        batch,
+                        fields_to_update,
+                    )
+                )
+                submitted_batches += 1
+
+                if len(pending_futures) >= max_pending_futures:
+                    done, pending_futures = wait(
+                        pending_futures,
+                        return_when=FIRST_COMPLETED,
+                    )
+                    for future in done:
+                        complete_one(future)
+
+            if submitted_batches == 0:
+                return
+
+            for future in pending_futures:
+                complete_one(future)
 
     # pylint: disable-next=too-many-locals
     def handle(self, *args, **options):
@@ -249,9 +355,20 @@ class Command(BaseCommand):
         chunk_size: int = options["chunk_size"]
         dry_run: bool = options["dry_run"]
         disable_styles: bool = options["disable_styles"]
+        enable_threading: bool = options["enable_threading"]
+        max_workers: int = options["max_workers"]
+
+        if chunk_size < 1:
+            raise ValueError("--chunk-size must be at least 1.")
+
+        if max_workers < 1:
+            raise ValueError("--max-workers must be at least 1.")
+
+        if max_workers > 8:
+            raise ValueError("--max-workers must be <= 8.")
 
         pprint = PrettyPrinter(
-            write=self.stdout.write,
+            write=self.stderr.write,
             name=self.__module__,
             disable_styles=disable_styles,
         )
@@ -302,11 +419,22 @@ class Command(BaseCommand):
                             model_pprint("No models to update.")
                             continue
 
-                        self._update_models(
-                            chunk_size=chunk_size,
-                            model_class=model_class,
-                            models=models,
-                            model_count=model_count,
-                            fields_to_update=fields_to_update,
-                            pprint=model_pprint,
-                        )
+                        if enable_threading:
+                            self._update_models_threaded(
+                                chunk_size=chunk_size,
+                                max_workers=max_workers,
+                                model_class=model_class,
+                                models=models,
+                                model_count=model_count,
+                                fields_to_update=fields_to_update,
+                                pprint=model_pprint,
+                            )
+                        else:
+                            self._update_models(
+                                chunk_size=chunk_size,
+                                model_class=model_class,
+                                models=models,
+                                model_count=model_count,
+                                fields_to_update=fields_to_update,
+                                pprint=model_pprint,
+                            )

@@ -151,7 +151,12 @@ class BaseEncryptedField(BinaryField, t.Generic[T]):
                 T,
                 model_instance.__pending_encryption_values__.pop(self.attname),
             )
-            return self._encrypt(model_instance, value)
+            encrypted_value = self._encrypt(model_instance, value)
+
+            model_instance.__decrypted_values__[self.attname] = value
+            model_instance.__dict__[self.attname] = encrypted_value
+
+            return encrypted_value
 
         # If data is already encrypted or None, return it as-is.
         return super().pre_save(model_instance, add)
