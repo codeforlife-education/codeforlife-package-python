@@ -213,6 +213,12 @@ class Command(BaseCommand):
             models = models.exclude(school__isnull=True).exclude(
                 school__is_active=False
             )
+        elif model_class._meta.model_name in ["level", "workspace"]:
+            models = (
+                models.exclude(owner__isnull=True)
+                .exclude(owner__user__isnull=True)
+                .exclude(owner__user__is_active=False)
+            )
 
         # Exclude default levels, which are shared across users and not
         # encrypted.
