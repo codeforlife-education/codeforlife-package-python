@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 cryptography = "==46.0.7"
-django = "==5.2.13"
+django = "==5.2.14"
 djangorestframework = "==3.16.1"
 django-filter = "==25.1"
 django-countries = "==7.6.1"
@@ -17,7 +17,7 @@ redis = {version = "==5.2.1", extras = ["hiredis"]}
 regex = "==2024.11.6"
 requests = "==2.33.0"
 gunicorn = "==23.0.0"
-uvicorn-worker = "==0.2.0"
+uvicorn-worker = "==0.4.0"
 pyjwt = "==2.12.1"
 psutil = "==7.0.0"
 google-auth = "==2.48.0"
