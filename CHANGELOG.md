@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.33.0 (2026-05-08)
+
+### Features
+
+- Workspace 1074 ([#176](https://github.com/ocadotechnology/codeforlife-package-python/pull/176),
+  [`f286c7a`](https://github.com/ocadotechnology/codeforlife-package-python/commit/f286c7ad7424163d6b315e081b33687241defb94))
+
+
 ## v0.32.6 (2026-04-10)
 
 ### Bug Fixes
