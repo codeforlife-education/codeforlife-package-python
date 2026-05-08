@@ -5,7 +5,6 @@ Created on 03/04/2024 at 16:37:44(+01:00).
 
 import typing as t
 
-from django.db.models import Q  # isort: skip
 from django.db.models.query import QuerySet  # isort: skip
 from django_filters import (  # type: ignore[import-untyped] # isort: skip
     rest_framework as filters,
@@ -23,8 +22,8 @@ from ..models import (  # isort: skip
 # pylint: disable-next=missing-class-docstring
 class UserFilterSet(FilterSet):
     students_in_class = filters.CharFilter(
-        "new_student__class_field__access_code",
-        "exact",
+        "new_student__class_field___access_code_hash",
+        "sha256",
     )
 
     _id = filters.NumberFilter(method="_id__method")
@@ -50,13 +49,18 @@ class UserFilterSet(FilterSet):
         first_name, last_name = (
             names if len(names) == 2 else (names[0], names[0])
         )
+        first_name, last_name = first_name.lower(), last_name.lower()
 
-        # TODO: use PostgreSQL specific lookup
-        # https://docs.djangoproject.com/en/5.0/ref/contrib/postgres/lookups/#std-fieldlookup-trigram_similar
-        return queryset.filter(
-            Q(first_name__icontains=first_name)
-            | Q(last_name__icontains=last_name)
-        )
+        pks = [
+            user.pk
+            for user in queryset.only(
+                "dek", "_first_name_enc", "_last_name_enc"
+            )
+            if first_name in user.first_name.lower()
+            or last_name in user.last_name.lower()
+        ]
+
+        return queryset.filter(pk__in=pks)
 
     def type__method(
         self: FilterSet,

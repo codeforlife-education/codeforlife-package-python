@@ -11,6 +11,8 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser as _AbstractBaseUser
 from django.utils.translation import gettext_lazy as _
 
+from .base import Model
+
 if t.TYPE_CHECKING:
     from django_stubs_ext.db.models import TypedModelMeta
 
@@ -19,7 +21,7 @@ else:
     TypedModelMeta = object
 
 
-class AbstractBaseUser(_AbstractBaseUser):
+class AbstractBaseUser(Model, _AbstractBaseUser):
     """
     Base user class to be inherited by all user classes.
     https://docs.djangoproject.com/en/5.1/topics/auth/customizing/#using-a-custom-user-model-when-starting-a-project

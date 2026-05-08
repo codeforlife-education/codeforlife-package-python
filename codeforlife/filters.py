@@ -15,11 +15,12 @@ class FilterSet(_FilterSet):
     """Base filter set all other filter sets must inherit."""
 
     @staticmethod
-    def make_exclude_field_list_method(field: str):
+    def make_exclude_field_list_method(field: str, lookup="in"):
         """Make a class-method that excludes a list of values for a field.
 
         Args:
             field: The field to exclude a list of values for.
+            lookup: The lookup type to use for exclusion.
 
         Returns:
             A class-method.
@@ -27,7 +28,7 @@ class FilterSet(_FilterSet):
 
         def method(self: FilterSet, queryset: QuerySet, name: str, *args):
             return queryset.exclude(
-                **{f"{field}__in": self.request.GET.getlist(name)}
+                **{f"{field}__{lookup}": self.request.GET.getlist(name)}
             )
 
         return method

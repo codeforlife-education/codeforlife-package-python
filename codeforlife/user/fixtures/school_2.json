@@ -3,19 +3,29 @@
     "model": "user.school",
     "pk": 3,
     "fields": {
-      "name": "School 2",
+      "_name_enc": "ZmFrZV9lbmM6rDyP9kxRgaY6xKUohQdWebf8Gs94JU03UH5NCdROWyGOpUk5",
+      "_name_plain": "School 2",
       "country": "GB",
-      "county": "Hertfordshire"
+      "county": "Hertfordshire",
+      "dek": "ZmFrZV9lbmM6bC7l4CSlvQMlUQ3LGmAgdXlinpUVIUxRCKl15mBnGovwpYqrwQhpqx47OXVPRQnzsIh5oX5/it+bnEw2"
     }
   },
   {
     "model": "user.user",
     "pk": 25,
     "fields": {
-      "first_name": "John",
-      "last_name": "Doe",
-      "username": "teacher@school2.com",
-      "email": "teacher@school2.com",
+      "_email_enc": "ZmFrZV9lbmM6aiPwZ1FRKtCtuUMMBINg0bJH+T0ADhxYrPmCORVX4iH+q73WJwIIXIp7I9hQ5Bs=",
+      "_email_hash": "8cdd687351ee31833adcb72d37e7b8f1c1c17c655c3fb182ac0127320af64284",
+      "_email_plain": "teacher@school2.com",
+      "_first_name_enc": "ZmFrZV9lbmM6SugTLn6zL+eLgD5bNHpO3WG1WS+ijY591LnSOvIxDic=",
+      "_first_name_hash": "7554c6b4930e0ac2c4d7fb5e7e266797b0444953067a0d7a17e835b518229e84",
+      "_first_name_plain": "John",
+      "_last_name_enc": "ZmFrZV9lbmM6JG27G2EreOMHHuSC6ydDGwMO9sE3g0VQBKNLJDomIw==",
+      "_last_name_plain": "Doe",
+      "_username_enc": "ZmFrZV9lbmM6TEP3/O1x823sRLTr68TrLNGrCdYrQF8xhHtrqkhJJKHyg4OcCq+p3IV9chaGAlQ=",
+      "_username_hash": "8cdd687351ee31833adcb72d37e7b8f1c1c17c655c3fb182ac0127320af64284",
+      "_username_plain": "teacher@school2.com",
+      "dek": "ZmFrZV9lbmM631EYeb8mv6nnLRT6A9OG9FBDTQY+mzzJSZ9/poVoYpJwZas0QQ+o+S+T0N1qfP8XG2j4QAtybU8BYtVb",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }
   },
@@ -23,114 +33,117 @@
     "model": "user.userprofile",
     "pk": 25,
     "fields": {
-      "user": 25,
       "is_verified": true,
-      "otp_secret": "KI6FA34LPRQU265KQBFYS2MTDYHE2EIG"
+      "otp_secret": "KI6FA34LPRQU265KQBFYS2MTDYHE2EIG",
+      "user": 25
     }
   },
   {
     "model": "user.authfactor",
     "pk": 1,
     "fields": {
-      "user": 25,
-      "type": "otp"
+      "type": "otp",
+      "user": 25
     }
   },
   {
     "model": "user.otpbypasstoken",
     "pk": 1,
     "fields": {
-      "user": 25,
-      "token": "ZmFrZV9lbmM6WVdGaFlXRmhZV0U9"
+      "token": "ZmFrZV9lbmM6WVdGaFlXRmhZV0U9",
+      "user": 25
     }
   },
   {
     "model": "user.otpbypasstoken",
     "pk": 2,
     "fields": {
-      "user": 25,
-      "token": "ZmFrZV9lbmM6WW1KaVltSmlZbUk9"
+      "token": "ZmFrZV9lbmM6WW1KaVltSmlZbUk9",
+      "user": 25
     }
   },
   {
     "model": "user.otpbypasstoken",
     "pk": 3,
     "fields": {
-      "user": 25,
-      "token": "ZmFrZV9lbmM6WTJOalkyTmpZMk09"
+      "token": "ZmFrZV9lbmM6WTJOalkyTmpZMk09",
+      "user": 25
     }
   },
   {
     "model": "user.otpbypasstoken",
     "pk": 4,
     "fields": {
-      "user": 25,
-      "token": "ZmFrZV9lbmM6WkdSa1pHUmtaR1E9"
+      "token": "ZmFrZV9lbmM6WkdSa1pHUmtaR1E9",
+      "user": 25
     }
   },
   {
     "model": "user.otpbypasstoken",
     "pk": 5,
     "fields": {
-      "user": 25,
-      "token": "ZmFrZV9lbmM6WldWbFpXVmxaV1U9"
+      "token": "ZmFrZV9lbmM6WldWbFpXVmxaV1U9",
+      "user": 25
     }
   },
   {
     "model": "user.otpbypasstoken",
     "pk": 6,
     "fields": {
-      "user": 25,
-      "token": "ZmFrZV9lbmM6Wm1abVptWm1abVk9"
+      "token": "ZmFrZV9lbmM6Wm1abVptWm1abVk9",
+      "user": 25
     }
   },
   {
     "model": "user.otpbypasstoken",
     "pk": 7,
     "fields": {
-      "user": 25,
-      "token": "ZmFrZV9lbmM6WjJkbloyZG5aMmM9"
+      "token": "ZmFrZV9lbmM6WjJkbloyZG5aMmM9",
+      "user": 25
     }
   },
   {
     "model": "user.otpbypasstoken",
     "pk": 8,
     "fields": {
-      "user": 25,
-      "token": "ZmFrZV9lbmM6YUdob2FHaG9hR2c9"
+      "token": "ZmFrZV9lbmM6YUdob2FHaG9hR2c9",
+      "user": 25
     }
   },
   {
     "model": "user.otpbypasstoken",
     "pk": 9,
     "fields": {
-      "user": 25,
-      "token": "ZmFrZV9lbmM6YVdscGFXbHBhV2s9"
+      "token": "ZmFrZV9lbmM6YVdscGFXbHBhV2s9",
+      "user": 25
     }
   },
   {
     "model": "user.otpbypasstoken",
     "pk": 10,
     "fields": {
-      "user": 25,
-      "token": "ZmFrZV9lbmM6YW1wcWFtcHFhbW89"
+      "token": "ZmFrZV9lbmM6YW1wcWFtcHFhbW89",
+      "user": 25
     }
   },
   {
     "model": "user.teacher",
     "pk": 8,
     "fields": {
-      "user": 25,
       "new_user": 25,
-      "school": 3
+      "school": 3,
+      "user": 25
     }
   },
   {
     "model": "user.class",
     "pk": 8,
     "fields": {
-      "name": "Class 1 @ School 2",
-      "access_code": "XX111",
+      "_access_code_enc": "ZmFrZV9lbmM6EK8Y5SIWGbV55+NvvCUsRgaw3QB+JEUGjCgJHgFJOj7Z",
+      "_access_code_hash": "0157477281b2aee7660889207dee1a14756bddd428162de41bada7a02c593ff6",
+      "_access_code_plain": "XX111",
+      "_name_enc": "ZmFrZV9lbmM6QS58FDOcIpwtt0KJ08wr+sKWQCVBucwv75ScfLpy53RQGS8dRIut/FEBoNUQ2g==",
+      "_name_plain": "Class 1 @ School 2",
       "teacher": 8
     }
   },
@@ -138,10 +151,18 @@
     "model": "user.user",
     "pk": 26,
     "fields": {
-      "first_name": "Jane",
-      "last_name": "Doe",
-      "username": "admin.teacher@school2.com",
-      "email": "admin.teacher@school2.com",
+      "_email_enc": "ZmFrZV9lbmM6Cc97ynmcPEUq24u31O3ho+rE5m+La+iHmoc3tyz3VObKKWca658I30zgJM253BWZWax0WaY=",
+      "_email_hash": "4841a8d3657918adffdab6cb4a0a6b64ad771aa56a53f80fed0ee8d074841ca3",
+      "_email_plain": "admin.teacher@school2.com",
+      "_first_name_enc": "ZmFrZV9lbmM6XAAtQFeiEPJbJe9g1zErH67kShgjeyTihaxID8eHsG4=",
+      "_first_name_hash": "a5945caf6491a22426f870debae98c823043af86691d336f95248daff7bb989a",
+      "_first_name_plain": "Jane",
+      "_last_name_enc": "ZmFrZV9lbmM60OVDyC7hAJrEkLkpcJ7LvaWcl5ovVLPrafucEwvZsQ==",
+      "_last_name_plain": "Doe",
+      "_username_enc": "ZmFrZV9lbmM6Duu4eRtUr7kJP/pxZea76U4q0m+/ouw1xt/jEhZ7bFyVVvc1n33HOLIKzvGO4RQKdE9Ze4s=",
+      "_username_hash": "4841a8d3657918adffdab6cb4a0a6b64ad771aa56a53f80fed0ee8d074841ca3",
+      "_username_plain": "admin.teacher@school2.com",
+      "dek": "ZmFrZV9lbmM6acw2bmFUUi2FVvY6NaRb393PcBFtnWsUdgZokzdWNxjrCnfI3qANds0dKuEEFzufBNQe4bPsmD5RmJdO",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }
   },
@@ -149,35 +170,38 @@
     "model": "user.userprofile",
     "pk": 26,
     "fields": {
-      "user": 26,
       "is_verified": true,
-      "otp_secret": "KI6FA34LPRQU265KQBFYS2MTDYHE2EIG"
+      "otp_secret": "KI6FA34LPRQU265KQBFYS2MTDYHE2EIG",
+      "user": 26
     }
   },
   {
     "model": "user.authfactor",
     "pk": 2,
     "fields": {
-      "user": 26,
-      "type": "otp"
+      "type": "otp",
+      "user": 26
     }
   },
   {
     "model": "user.teacher",
     "pk": 9,
     "fields": {
-      "user": 26,
+      "is_admin": true,
       "new_user": 26,
       "school": 3,
-      "is_admin": true
+      "user": 26
     }
   },
   {
     "model": "user.class",
     "pk": 9,
     "fields": {
-      "name": "Class 2 @ School 2",
-      "access_code": "XX222",
+      "_access_code_enc": "ZmFrZV9lbmM6qqcLrPU7P3AyIdfDrFRA93ClW5sJEm/zyLRdbR5FsVUd",
+      "_access_code_hash": "750df33e8a531e83fddf652344b680983a1555c6dcd8fda80f4af785357b444d",
+      "_access_code_plain": "XX222",
+      "_name_enc": "ZmFrZV9lbmM65DRSk4ioNDC3lTdBdMzCx8izq6MA3hx1Lv7bVmIB0klrcE/ytKj/2YAOqQF5uA==",
+      "_name_plain": "Class 2 @ School 2",
       "teacher": 9
     }
   }

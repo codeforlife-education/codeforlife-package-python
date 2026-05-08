@@ -11,7 +11,7 @@ import jwt
 import requests
 from django.conf import settings
 from django.utils import timezone
-from jwt.algorithms import RSAAlgorithm
+from jwt.types import JWKDict, Options
 
 from ..types import JsonDict
 from .base import BasePermission
@@ -79,7 +79,7 @@ class AuthHeaderIsGitHubOidcToken(BasePermission):
             header = jwt.get_unverified_header(token)
             kid = header.get("kid")
 
-            jwk: t.Optional[JsonDict] = None
+            jwk: t.Optional[JWKDict] = None
             for _jwk in jwks:
                 if _jwk.get("kid") == kid:
                     jwk = _jwk
@@ -91,12 +91,11 @@ class AuthHeaderIsGitHubOidcToken(BasePermission):
 
             return jwt.decode(
                 token,
-                key=RSAAlgorithm.from_jwk(jwk),  # type: ignore[arg-type]
+                key=jwt.PyJWK.from_dict(jwk),
                 algorithms=["RS256", "RS384", "RS512"],
                 audience=settings.SERVICE_DOMAIN,
                 issuer=self.issuer,
-                # pylint: disable-next=line-too-long
-                options={"require_exp": True, "verify_signature": True},  # type: ignore[arg-type]
+                options=Options(require=["exp"], verify_signature=True),
             )
 
         except jwt.exceptions.ExpiredSignatureError:

@@ -16,7 +16,8 @@ class ClassViewSet(ModelViewSet[User, Class]):
     request_user_class = User
     model_class = Class
     http_method_names = ["get"]
-    lookup_field = "access_code"
+    lookup_field = "_access_code_hash__sha256"
+    lookup_url_kwarg = "access_code"
     serializer_class = ClassSerializer
     filterset_class = ClassFilterSet
 

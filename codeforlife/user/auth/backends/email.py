@@ -22,13 +22,16 @@ class EmailBackend(BaseBackend):
         if email is None or password is None:
             return None
 
+        email = self.user_class.objects.normalize_email(email)
+
         # pylint: disable=duplicate-code
         try:
-            user = self.user_class.objects.get(email__iexact=email)
-            if user.check_password(password):
-                return user
+            user = self.user_class.objects.get(_email_hash__sha256=email)
         except self.user_class.DoesNotExist:
             return None
         # pylint: enable=duplicate-code
+
+        if user.check_password(password):
+            return user
 
         return None

@@ -10,10 +10,11 @@ pipelines, we use fake (mock) implementations of the KMS client and its AEAD
 primitive. A simple check for the environment (e.g., `settings.ENV == "local"`)
 determines whether to use the real `GcpKmsClient` or a `FakeGcpKmsClient`.
 
-The fake client mimics the behavior of the real one. Instead of performing real
-encryption, it simulates it by encoding the plaintext in base64 and adding a
-prefix. This allows the application to run without needing cloud credentials
-while still being able to distinguish between "encrypted" and plaintext data.
+The fake client mimics the behavior of the real one while still using a real
+AEAD algorithm locally. `FakeAead` uses `AESGCM` with random nonces and
+associated data support, then prefixes the resulting blob so local ciphertext
+can be identified as fake-KMS output. This keeps local behavior close to cloud
+execution while avoiding cloud credentials.
 
 While the `FakeAead` and `FakeGcpKmsClient` are sufficient for running a local
 development server, they are not `unittest.mock.MagicMock` instances by default.
@@ -27,13 +28,13 @@ assertions like `assert_called_once()`.
 """
 
 import typing as t
-from base64 import b64decode, b64encode
-from dataclasses import dataclass
+from functools import cache
 from io import BytesIO
+from os import urandom
 from unittest.mock import MagicMock, create_autospec
 
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from django.conf import settings
-from django.utils.crypto import get_random_string
 from tink import (  # type: ignore[import-untyped]
     BinaryKeysetReader,
     BinaryKeysetWriter,
@@ -48,27 +49,39 @@ from tink.integration import gcpkms  # type: ignore[import-untyped]
 _GcpKmsClient = gcpkms.GcpKmsClient
 
 
-@dataclass
 class FakeAead:
     """A fake AEAD primitive for local testing."""
 
-    @staticmethod
-    # pylint: disable-next=unused-argument
-    def encrypt(plaintext: bytes, associated_data: bytes = b""):
-        """Simulate ciphertext by wrapping in base64 and adding a prefix."""
-        return b"fake_enc:" + b64encode(plaintext)
+    ciphertext_prefix = b"fake_enc:"
+    nonce_size = 12
 
-    @staticmethod
-    # pylint: disable-next=unused-argument
-    def decrypt(ciphertext: bytes, associated_data: bytes = b""):
-        """Simulate decryption by removing prefix and base64 decoding."""
-        if not ciphertext.startswith(b"fake_enc:"):
+    def __init__(self, key: bytes):
+        self._aesgcm = AESGCM(key)
+
+    def encrypt(self, plaintext: bytes, associated_data: bytes):
+        """Encrypt data using AES-GCM and return a prefixed blob."""
+        nonce = urandom(self.nonce_size)
+        ciphertext = self._aesgcm.encrypt(
+            nonce=nonce,
+            data=plaintext,
+            associated_data=associated_data,
+        )
+
+        return self.ciphertext_prefix + nonce + ciphertext
+
+    def decrypt(self, ciphertext: bytes, associated_data: bytes):
+        """Decrypt a prefixed AES-GCM blob."""
+        if not ciphertext.startswith(self.ciphertext_prefix):
             raise ValueError("Invalid ciphertext for fake mock")
+        ciphertext = ciphertext.removeprefix(self.ciphertext_prefix)
 
-        return b64decode(ciphertext.replace(b"fake_enc:", b""))
+        return self._aesgcm.decrypt(
+            nonce=ciphertext[: self.nonce_size],
+            data=ciphertext[self.nonce_size :],
+            associated_data=associated_data,
+        )
 
-    @classmethod
-    def as_mock(cls):
+    def as_mock(self):
         """
         Returns the class as a functional MagicMock for testing. The mock tracks
         calls while still performing the fake encryption and decryption by using
@@ -76,17 +89,21 @@ class FakeAead:
         the mock behaves as an instance of the class, not the class itself.
         """
         mock: MagicMock = create_autospec(Aead, instance=True)
-        mock.encrypt.side_effect = cls.encrypt
-        mock.decrypt.side_effect = cls.decrypt
+        mock.encrypt.side_effect = self.encrypt
+        mock.decrypt.side_effect = self.decrypt
 
         return mock
 
 
-@dataclass
 class FakeGcpKmsClient:
     """A fake GcpKmsClient for local testing."""
 
-    key_uri: str
+    # Fake key encryption key (KEK) for local testing.
+    # pylint: disable-next=line-too-long
+    kek = b"fake_kek:\xba\xcc\x8c;\xa9\x85k\n\x93\xb7\x1b2\xab\x86\x9d\xea\xb1+\x88\xc0\xc4y3"
+
+    def __init__(self, key_uri: str):
+        self.key_uri = key_uri
 
     @staticmethod
     def register_client(
@@ -97,7 +114,7 @@ class FakeGcpKmsClient:
     # pylint: disable-next=unused-argument
     def get_aead(self, key_uri: str) -> Aead:
         """Return the fake AEAD primitive."""
-        return FakeAead()
+        return FakeAead(self.kek)
 
     @classmethod
     def as_mock(cls):
@@ -108,15 +125,16 @@ class FakeGcpKmsClient:
         itself.
         """
         mock: MagicMock = create_autospec(_GcpKmsClient, instance=True)
-        mock.get_aead.return_value = FakeAead.as_mock()
+        mock.get_aead.return_value = FakeAead(cls.kek).as_mock()
 
         return mock
 
 
+@cache
 def _get_kek_aead():
     """Get the AEAD primitive for the key encryption key (KEK)."""
-    return GcpKmsClient(key_uri=settings.GCP_KMS_KEY_URI).get_aead(
-        key_uri=settings.GCP_KMS_KEY_URI
+    return GcpKmsClient(key_uri=settings.GCP_KMS_KEY_URI()).get_aead(
+        key_uri=settings.GCP_KMS_KEY_URI()
     )
 
 
@@ -127,7 +145,7 @@ def create_dek():
     """
     # In local environment, return a fake encrypted DEK.
     if settings.ENV == "local":
-        return FakeAead.encrypt(get_random_string(32).encode())
+        return _get_kek_aead().encrypt(urandom(32), b"")
 
     stream = BytesIO()
     new_keyset_handle(key_template=aead_key_templates.AES256_GCM).write(
@@ -148,7 +166,7 @@ def get_dek_aead(dek: bytes) -> Aead:
 
     # In local environment, return the fake AEAD primitive.
     if settings.ENV == "local":
-        return FakeAead()
+        return FakeAead(_get_kek_aead().decrypt(dek, b""))
 
     return read_keyset_handle(
         keyset_reader=BinaryKeysetReader(dek),
@@ -164,5 +182,5 @@ GcpKmsClient = FakeGcpKmsClient if settings.ENV == "local" else _GcpKmsClient
 
 # Register the GCP KMS client with Tink.
 GcpKmsClient.register_client(
-    key_uri=settings.GCP_KMS_KEY_URI, credentials_path=None
+    key_uri=settings.GCP_KMS_KEY_URI(), credentials_path=None
 )

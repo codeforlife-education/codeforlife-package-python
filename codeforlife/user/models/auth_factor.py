@@ -46,6 +46,8 @@ class AuthFactor(models.Model):
         on_delete=models.CASCADE,
     )
 
+    # NOTE: this is not currently used in production. when it is, it should be
+    # converted into an EncryptedTextField.
     type: str
     type = models.TextField(choices=Type.choices)  # type: ignore[assignment]
 

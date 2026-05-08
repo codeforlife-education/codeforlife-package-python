@@ -5,36 +5,19 @@ Created on 12/02/2025 at 16:49:16(+00:00).
 This file contains all of our custom settings we define for our own purposes.
 """
 
-import json
 import os
 import re
 import typing as t
 from pathlib import Path
 
-import boto3
-
-from .otp import (
-    AWS_S3_APP_BUCKET,
-    AWS_S3_APP_FOLDER,
-    AWS_S3_STATIC_FOLDER,
-    CACHE_DB_DATA_PATH,
-)
+from ._secrets import LatestSecret
 
 if t.TYPE_CHECKING:
-    from mypy_boto3_s3.client import S3Client
-
-    from ..server import Server
-    from ..types import CookieSamesite, DatabaseEngine, Env, JsonDict
+    from ..types import CookieSamesite, Env
 
 
 # The name of the current environment.
 ENV = t.cast("Env", os.getenv("ENV", "local"))
-
-# The database's engine type.
-DB_ENGINE = t.cast("DatabaseEngine", os.getenv("DB_ENGINE", "postgresql"))
-
-# The mode the service is being served in.
-SERVER_MODE = t.cast("Server.Mode", os.getenv("SERVER_MODE", "django"))
 
 # The level of the logs.
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -68,14 +51,9 @@ SERVICE_EXTERNAL_DOMAIN = (
 # The frontend url of the current service.
 SERVICE_SITE_URL = os.getenv("SERVICE_SITE_URL", "http://localhost:5173")
 
-# The location of the service's folder in the s3 buckets.
-SERVICE_S3_APP_LOCATION = f"{AWS_S3_APP_FOLDER}/{SERVICE_NAME}/{SERVER_MODE}"
-SERVICE_S3_STATIC_LOCATION = (
-    f"{AWS_S3_STATIC_FOLDER}/{SERVICE_NAME}/{SERVER_MODE}"
-)
 
 # The authorization bearer token used to authenticate with Dotdigital.
-MAIL_AUTH = os.getenv("MAIL_AUTH", "REPLACE_ME")
+MAIL_AUTH = LatestSecret("MAIL_AUTH", "REPLACE_ME")
 
 # A global flag to enable/disable sending emails.
 # If disabled, emails will be logged to the console instead.
@@ -88,44 +66,6 @@ SESSION_METADATA_COOKIE_PATH = "/"
 SESSION_METADATA_COOKIE_DOMAIN = SERVICE_EXTERNAL_DOMAIN
 SESSION_METADATA_COOKIE_SAMESITE: "CookieSamesite" = "Strict"
 
-
-def get_redis_url():
-    """Get the Redis URL for the current environment.
-
-    Raises:
-        ConnectionAbortedError: If the engine is not Redis.
-
-    Returns:
-        The Redis URL.
-    """
-
-    if ENV == "local":
-        host = os.getenv("REDIS_HOST", "cache")
-        port = int(os.getenv("REDIS_PORT", "6379"))
-        path = os.getenv("REDIS_PATH", "0")
-        url = f"{host}:{port}/{path}"
-    else:
-        # Get the dbdata object.
-        s3: "S3Client" = boto3.client("s3")
-        db_data_object = s3.get_object(
-            Bucket=t.cast(str, AWS_S3_APP_BUCKET), Key=CACHE_DB_DATA_PATH
-        )
-
-        # Load the object as a JSON dict.
-        db_data: "JsonDict" = json.loads(
-            db_data_object["Body"].read().decode("utf-8")
-        )
-        if not db_data or db_data["Engine"] != "Redis":
-            raise ConnectionAbortedError("Invalid database data.")
-
-        endpoint = t.cast(dict, db_data["Endpoint"])
-        url = t.cast(str, endpoint["0001"])
-
-    return f"redis://{url}"
-
-
-# The URL to connect to the Redis cache.
-REDIS_URL = get_redis_url()
 
 # A flag to indicate whether the old system is the current runtime to
 # conditionally run code that is still needed for the old system to work but is

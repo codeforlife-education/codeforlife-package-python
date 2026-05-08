@@ -83,9 +83,8 @@ class BaseModelViewSetTestCase(
         if model is not None:
             lookup_url_kwarg = self.model_view_set_class.lookup_url_kwarg
             lookup_field = self.model_view_set_class.lookup_field
-            reverse_kwargs[lookup_url_kwarg or lookup_field] = getattr(
-                model, lookup_field
-            )
+            lookup = lookup_url_kwarg or lookup_field
+            reverse_kwargs[lookup] = getattr(model, lookup)
 
         name = name.replace("_", "-")
         return reverse(

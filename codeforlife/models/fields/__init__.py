@@ -7,3 +7,4 @@ from .base_encrypted import BaseEncryptedField
 from .data_encryption_key import DataEncryptionKeyField
 from .deferred_attribute import DeferredAttribute
 from .encrypted_text import EncryptedTextField
+from .sha256 import Sha256Field

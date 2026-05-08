@@ -36,6 +36,7 @@ class SchoolTeacherUserManager(TeacherUserManager[AnyUser], t.Generic[AnyUser]):
         is_verified: bool = False,
         **extra_fields,
     ):
+        """Creates a user that is a teacher in a school."""
         return super().create_user(
             first_name=first_name,
             last_name=last_name,
@@ -48,6 +49,7 @@ class SchoolTeacherUserManager(TeacherUserManager[AnyUser], t.Generic[AnyUser]):
         )
 
     def filter_users(self, queryset: QuerySet["User"]):
+        """Filter users to include only school teachers."""
         return (
             super()
             .filter_users(queryset)

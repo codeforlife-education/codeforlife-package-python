@@ -5,9 +5,6 @@ Created on 19/01/2024 at 17:15:56(+00:00).
 
 import typing as t
 
-from django.db.models import Q
-from django.db.models.query import QuerySet
-
 from ...tests import ModelViewSetTestCase
 from ..models import (
     AdminSchoolTeacherUser,
@@ -33,7 +30,7 @@ class TestUserViewSet(ModelViewSetTestCase[RequestUser, User]):
 
     def setUp(self):
         self.admin_school_teacher_user = AdminSchoolTeacherUser.objects.get(
-            email="admin.teacher@school1.com"
+            _email_hash__sha256="admin.teacher@school1.com"
         )
 
     # test: get queryset
@@ -151,7 +148,7 @@ class TestUserViewSet(ModelViewSetTestCase[RequestUser, User]):
         assert user.teacher.classes.count() >= 2
 
         klass = t.cast(Class, user.teacher.classes.first())
-        students: QuerySet[Student] = klass.students.all()
+        students = klass.students.all()
         assert (
             Student.objects.filter(
                 class_field__teacher__school=user.teacher.school
@@ -236,13 +233,20 @@ class TestUserViewSet(ModelViewSetTestCase[RequestUser, User]):
 
         school_users = user.teacher.school_users
         first_name, last_name = user.first_name, user.last_name[:1]
+        first_name, last_name = first_name.lower(), last_name.lower()
+
+        pks = [
+            user.pk
+            for user in school_users.only(
+                "dek", "_first_name_enc", "_last_name_enc"
+            )
+            if first_name in user.first_name.lower()
+            or last_name in user.last_name.lower()
+        ]
 
         self.client.login_as(user)
         self.client.list(
-            models=school_users.filter(
-                Q(first_name__icontains=first_name)
-                | Q(last_name__icontains=last_name)
-            ).order_by("pk"),
+            models=school_users.filter(pk__in=pks).order_by("pk"),
             filters={"name": f"{first_name} {last_name}"},
         )
 

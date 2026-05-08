@@ -6,54 +6,28 @@ This file contains all the settings Django supports out of the box.
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
-import json
 import os
-import typing as t
 
-import boto3
 from django.utils.translation import gettext_lazy as _
 
 from .. import TEMPLATES_DIR
+from ._secrets import get_secret
 from .custom import (
-    DB_ENGINE,
     ENV,
     LOG_LEVEL,
-    REDIS_URL,
     SERVICE_BASE_DIR,
     SERVICE_BASE_URL,
     SERVICE_DOMAIN,
     SERVICE_EXTERNAL_DOMAIN,
     SERVICE_NAME,
-    SERVICE_S3_APP_LOCATION,
-    SERVICE_S3_STATIC_LOCATION,
     SERVICE_SITE_URL,
 )
-from .otp import (
-    AWS_REGION,
-    AWS_S3_APP_BUCKET,
-    AWS_S3_APP_DEFAULT_ACL,
-    AWS_S3_APP_DOMAIN,
-    AWS_S3_APP_QUERYSTRING_AUTH,
-    AWS_S3_APP_QUERYSTRING_EXPIRE,
-    AWS_S3_STATIC_BUCKET,
-    AWS_S3_STATIC_DEFAULT_ACL,
-    AWS_S3_STATIC_DOMAIN,
-    AWS_S3_STATIC_QUERYSTRING_AUTH,
-    AWS_S3_STATIC_QUERYSTRING_EXPIRE,
-    RDS_DB_DATA_PATH,
-)
-
-if t.TYPE_CHECKING:
-    from mypy_boto3_s3.client import S3Client
-
-    from ..types import JsonDict
-
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.getenv("DEBUG", "1")))
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("SECRET_KEY", "replace-me")
+SECRET_KEY = get_secret("SECRET_KEY", "replace-me")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -63,65 +37,17 @@ ALLOWED_HOSTS = ["*"]
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-
-def get_databases():
-    """Get the databases for the current environment.
-
-    Raises:
-        ConnectionAbortedError: If the engine is not postgres.
-
-    Returns:
-        The database configs.
-    """
-
-    if DB_ENGINE == "sqlite":
-        return {
-            "default": {
-                "ENGINE": "django.db.backends.sqlite3",
-                "NAME": ":memory:",
-            }
-        }
-
-    if ENV == "local":
-        name = os.getenv("DB_NAME", SERVICE_NAME)
-        user = os.getenv("DB_USER", "root")
-        password = os.getenv("DB_PASSWORD", "password")
-        host = os.getenv("DB_HOST", "db")
-        port = int(os.getenv("DB_PORT", "5432"))
-    else:
-        # Get the dbdata object.
-        s3: "S3Client" = boto3.client("s3")
-        db_data_object = s3.get_object(
-            Bucket=t.cast(str, AWS_S3_APP_BUCKET), Key=RDS_DB_DATA_PATH
-        )
-
-        # Load the object as a JSON dict.
-        db_data: "JsonDict" = json.loads(
-            db_data_object["Body"].read().decode("utf-8")
-        )
-        if not db_data or db_data["DBEngine"] != "postgres":
-            raise ConnectionAbortedError("Invalid database data.")
-
-        name = t.cast(str, db_data["Database"])
-        user = t.cast(str, db_data["user"])
-        password = t.cast(str, db_data["password"])
-        host = t.cast(str, db_data["Endpoint"])
-        port = t.cast(int, db_data["Port"])
-
-    return {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": name,
-            "USER": user,
-            "PASSWORD": password,
-            "HOST": host,
-            "PORT": port,
-            "ATOMIC_REQUESTS": True,
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": get_secret("DB_NAME", SERVICE_NAME),
+        "USER": get_secret("DB_USER", "root"),
+        "PASSWORD": get_secret("DB_PASSWORD", "password"),
+        "HOST": get_secret("DB_HOST", "db"),
+        "PORT": int(get_secret("DB_PORT", "5432")),
+        "ATOMIC_REQUESTS": True,
     }
-
-
-DATABASES = get_databases()
+}
 
 # Application definition
 
@@ -288,28 +214,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "django_filters",
-    "storages",
 ]
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
-
-STATIC_ROOT = SERVICE_BASE_DIR / "static"
-STATIC_URL = (
-    f"https://{AWS_S3_STATIC_DOMAIN}/{SERVICE_S3_STATIC_LOCATION}/"
-    if ENV != "local"
-    else "/static/"
-)
-
-# User-uploaded files
-# https://docs.djangoproject.com/en/5.1/topics/files/
-
-MEDIA_ROOT = SERVICE_BASE_DIR / "media"
-MEDIA_URL = (
-    f"https://{AWS_S3_APP_DOMAIN}/{SERVICE_S3_APP_LOCATION}/"
-    if ENV != "local"
-    else "/media/"
-)
 
 # Templates
 # https://docs.djangoproject.com/en/5.1/ref/templates/
@@ -332,51 +237,3 @@ TEMPLATES = [
         },
     },
 ]
-
-# Storages
-# https://docs.djangoproject.com/en/5.1/ref/settings/#storages
-
-STORAGES: t.Dict[str, t.Any] = {
-    "default": (
-        {"BACKEND": "django.core.files.storage.FileSystemStorage"}
-        if ENV == "local"
-        else {
-            "BACKEND": "storages.backends.s3.S3Storage",
-            # https://django-storages.readthedocs.io/en/latest/backends/amazon-S3.html#settings
-            "OPTIONS": {
-                "bucket_name": AWS_S3_APP_BUCKET,
-                "location": SERVICE_S3_APP_LOCATION,
-                "region_name": AWS_REGION,
-                "default_acl": AWS_S3_APP_DEFAULT_ACL,
-                "querystring_auth": AWS_S3_APP_QUERYSTRING_AUTH,
-                "querystring_expire": AWS_S3_APP_QUERYSTRING_EXPIRE,
-            },
-        }
-    ),
-    "staticfiles": (
-        {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}
-        if ENV == "local"
-        else {
-            "BACKEND": "storages.backends.s3.S3Storage",
-            # https://django-storages.readthedocs.io/en/latest/backends/amazon-S3.html#settings
-            "OPTIONS": {
-                "bucket_name": AWS_S3_STATIC_BUCKET,
-                "location": SERVICE_S3_STATIC_LOCATION,
-                "region_name": AWS_REGION,
-                "default_acl": AWS_S3_STATIC_DEFAULT_ACL,
-                "querystring_auth": AWS_S3_STATIC_QUERYSTRING_AUTH,
-                "querystring_expire": AWS_S3_STATIC_QUERYSTRING_EXPIRE,
-            },
-        }
-    ),
-}
-
-# Caches
-# https://docs.djangoproject.com/en/5.1/topics/cache/
-
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": REDIS_URL,
-    }
-}

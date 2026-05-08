@@ -3,19 +3,29 @@
     "model": "user.school",
     "pk": 4,
     "fields": {
-      "name": "School 3",
+      "_name_enc": "ZmFrZV9lbmM6LQq31+NKOlsLWDpsatuQth2lvPldBNrjK/oLXHFMGZbSkZFh",
+      "_name_plain": "School 3",
       "country": "GB",
-      "county": "Hertfordshire"
+      "county": "Hertfordshire",
+      "dek": "ZmFrZV9lbmM6shO69sz7AjLAiIOt+QChcplwnM2SkTEydMeG2n/a8G39H7d320r9s9Q9D18poYRBOTW1ONMu4FDE1QAE"
     }
   },
   {
     "model": "user.user",
     "pk": 31,
     "fields": {
-      "first_name": "Peter",
-      "last_name": "Parker",
-      "username": "admin.teacher@school3.com",
-      "email": "admin.teacher@school3.com",
+      "_email_enc": "ZmFrZV9lbmM6IWL4ECecrQdG5hEcbqZjrua3qN4twKvoYnZ4Sxdsri4ER5WaDmBoRdlfpDxfBdt7mF4lGtw=",
+      "_email_hash": "22a604d4828ae8429e8303d16c7d9967145b214b827a8ff1845b19e2a10b12c3",
+      "_email_plain": "admin.teacher@school3.com",
+      "_first_name_enc": "ZmFrZV9lbmM6X/pzRYxC3wSQmFiiPbeGouhsrbGoQviFfkpXbF4nutGt",
+      "_first_name_hash": "083ec2a4fd4004ed6f9bd61965b170a9b5db5d5873c7217f65bede117f004a79",
+      "_first_name_plain": "Peter",
+      "_last_name_enc": "ZmFrZV9lbmM6W9e5RMeFGyGqvF5EXOFm66Sa6OeiQT/wbub//DRcXxzjUA==",
+      "_last_name_plain": "Parker",
+      "_username_enc": "ZmFrZV9lbmM6CddPXEbQUUpaRaGDpvdxqRYehBobuVa0GuIgG+mE8t/Qys7HA9KvKTx3zNWF0rwobAz7ulk=",
+      "_username_hash": "22a604d4828ae8429e8303d16c7d9967145b214b827a8ff1845b19e2a10b12c3",
+      "_username_plain": "admin.teacher@school3.com",
+      "dek": "ZmFrZV9lbmM6whXTmVh8Ll7uD/RveSp8tPcfOtNoJb7XPPq2qa1ZXDSymoH85slcLwDSu/wl9gCKYhotmG1eQWyTbI5B",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }
   },
@@ -23,28 +33,36 @@
     "model": "user.userprofile",
     "pk": 31,
     "fields": {
-      "user": 31,
-      "is_verified": true
+      "is_verified": true,
+      "user": 31
     }
   },
   {
     "model": "user.teacher",
     "pk": 10,
     "fields": {
-      "user": 31,
+      "is_admin": true,
       "new_user": 31,
       "school": 4,
-      "is_admin": true
+      "user": 31
     }
   },
   {
     "model": "user.user",
     "pk": 32,
     "fields": {
-      "first_name": "Doctor",
-      "last_name": "Octopus",
-      "username": "teacher@school3.com",
-      "email": "teacher@school3.com",
+      "_email_enc": "ZmFrZV9lbmM6VhCbhP1x0NtRUqNK6RCZ4g3g6fFC8kjqD7vJDj+Jqrv3/vS6b5r6ui0BeIg2XcU=",
+      "_email_hash": "c66f480d5458f514966dd1a540e652d1c57850a11122a26b1760eb95d7833fa1",
+      "_email_plain": "teacher@school3.com",
+      "_first_name_enc": "ZmFrZV9lbmM6XZjkxcuqVijVuzm3HPh/C+wn9MbuGSI6FH+qbWghkHIRqg==",
+      "_first_name_hash": "be367a9fe2b4bf78b7f7bd98e888fac606cfafa10fc91f25745d4a60e167ba72",
+      "_first_name_plain": "Doctor",
+      "_last_name_enc": "ZmFrZV9lbmM6rZsTsYhs5sQaqfUSMArJQ7u7cb/ufIvxvUANzmjust+rIjw=",
+      "_last_name_plain": "Octopus",
+      "_username_enc": "ZmFrZV9lbmM6UyHAKfn5fsxKpVQBKNOjvFXSWeKdjx+z51Id4rtPKYOQdLPuir213o1WgrbiR6A=",
+      "_username_hash": "c66f480d5458f514966dd1a540e652d1c57850a11122a26b1760eb95d7833fa1",
+      "_username_plain": "teacher@school3.com",
+      "dek": "ZmFrZV9lbmM68IHXVmIH5mmTb5T4H53Dcw2J1r4tZd0/GkPNUDJPk9d0/Gzm7UfKWIlLhDiNaSAlppjgSzf2lBd1w8K+",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }
   },
@@ -52,17 +70,17 @@
     "model": "user.userprofile",
     "pk": 32,
     "fields": {
-      "user": 32,
-      "is_verified": true
+      "is_verified": true,
+      "user": 32
     }
   },
   {
     "model": "user.teacher",
     "pk": 11,
     "fields": {
-      "user": 32,
       "new_user": 32,
-      "school": 4
+      "school": 4,
+      "user": 32
     }
   }
 ]

@@ -8,7 +8,6 @@ Custom test cases.
 from .api import APITestCase, BaseAPITestCase
 from .api_client import APIClient, BaseAPIClient
 from .api_request_factory import APIRequestFactory, BaseAPIRequestFactory
-from .celery import CeleryTestCase
 from .exceptions import InterruptPipelineError
 from .model import ModelTestCase
 from .model_list_serializer import (

@@ -4,35 +4,28 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-celery = {version = "==5.4.0", extras = ["sqs"]}
 cryptography = "==46.0.7"
-boto3 = "==1.36.14"
-django = "==5.2.13"
+django = "==5.2.14"
 djangorestframework = "==3.16.1"
 django-filter = "==25.1"
 django-countries = "==7.6.1"
 django-cors-headers = "==4.7.0"
 django-csp = "==3.8"
-django-storages = {version = "==1.14.6", extras = ["s3"]}
 pyotp = "==2.9.0"
-python-dotenv = "==1.0.1"
 psycopg2-binary = "==2.9.9"
 redis = {version = "==5.2.1", extras = ["hiredis"]}
 regex = "==2024.11.6"
 requests = "==2.33.1"
-gunicorn = "==23.0.0"
-uvicorn-worker = "==0.2.0"
 pyjwt = "==2.12.1"
 psutil = "==7.0.0"
 google-auth = "==2.48.0"
-google-cloud-bigquery = "==3.38.0"
+google-cloud-secret-manager = "==2.27.0"
+google-crc32c = "==1.8.0"
 tink = {version = "==1.13.0", extras = ["gcpkms"]}
 cachetools = "==6.2.6"
 
 [dev-packages]
-celery-types = "==0.23.0"
 black = "==24.8.0"
-boto3-stubs = {version = "==1.38.39", extras = ["essential"]}
 pytest = "==8.3.3"
 pytest-cov = "==5.0.0"
 pytest-env = "==0.8.1"

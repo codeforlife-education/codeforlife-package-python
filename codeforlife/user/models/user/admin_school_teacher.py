@@ -26,6 +26,7 @@ class AdminSchoolTeacherUserManager(
     SchoolTeacherUserManager["AdminSchoolTeacherUser"]
 ):
     def filter_users(self, queryset: QuerySet["User"]):
+        """Filter users to include only admin school teachers."""
         return super().filter_users(queryset).filter(new_teacher__is_admin=True)
 
 

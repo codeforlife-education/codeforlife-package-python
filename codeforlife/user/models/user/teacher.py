@@ -26,7 +26,7 @@ AnyUser = t.TypeVar("AnyUser", bound="User")
 
 # pylint: disable-next=missing-class-docstring,too-few-public-methods
 class TeacherUserManager(ContactableUserManager[AnyUser], t.Generic[AnyUser]):
-    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
+    # pylint: disable-next=too-many-arguments,too-many-positional-arguments,arguments-differ
     def create_user(  # type: ignore[override]
         self,
         first_name: str,

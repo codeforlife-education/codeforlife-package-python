@@ -20,7 +20,7 @@ class TestClassViewSet(ModelViewSetTestCase[RequestUser, Class]):
 
     def setUp(self):
         self.admin_school_teacher_user = AdminSchoolTeacherUser.objects.get(
-            email="admin.teacher@school1.com"
+            _email_hash__sha256="admin.teacher@school1.com"
         )
 
     # test: get permissions
@@ -108,18 +108,28 @@ class TestClassViewSet(ModelViewSetTestCase[RequestUser, Class]):
         klass = user.teacher.classes.first()
         assert klass
 
-        partial_access_code = klass.access_code[:-1]
-        partial_name = klass.name[:-1]
+        partial_access_code = klass.access_code[:-1].lower()
+        partial_name = klass.name[:-1].lower()
+
+        klasses = Class.objects.select_related("teacher__school")
 
         self.client.login_as(user)
         self.client.list(
-            models=user.teacher.classes.filter(
-                access_code__icontains=partial_access_code
-            ),
+            models=[
+                klass
+                for klass in klasses.only(
+                    "_access_code_enc", "teacher__school__dek"
+                )
+                if partial_access_code in klass.access_code.lower()
+            ],
             filters={"id_or_name": partial_access_code},
         )
         self.client.list(
-            models=user.teacher.classes.filter(name__icontains=partial_name),
+            models=[
+                klass
+                for klass in klasses.only("_name_enc", "teacher__school__dek")
+                if partial_name in klass.name.lower()
+            ],
             filters={"id_or_name": partial_name},
         )
 

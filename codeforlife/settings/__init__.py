@@ -14,8 +14,8 @@ cfl_settings.EXAMPLE_SETTING
 `
 """
 
+from ._secrets import LatestSecret, TypedLatestSecret, get_secret
 from .custom import *
 from .django import *
 from .google import *
-from .otp import *
 from .third_party import *

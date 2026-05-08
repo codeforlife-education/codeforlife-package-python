@@ -10,7 +10,7 @@ from django.db import models
 from ...encryption import create_dek
 from ...tests import TestCase
 from ..base_data_encryption_key import BaseDataEncryptionKeyModel
-from .data_encryption_key import DataEncryptionKeyField, _TrustedDek
+from .data_encryption_key import DataEncryptionKeyField
 
 if t.TYPE_CHECKING:
     from django_stubs_ext.db.models import TypedModelMeta
@@ -67,7 +67,7 @@ class TestDataEncryptionKeyField(TestCase):
     def test_init__editable_not_allowed(self):
         """Cannot create DataEncryptionKeyField with editable=True."""
         with self.assert_raises_validation_error(code="editable_not_allowed"):
-            DataEncryptionKeyField(editable=True)
+            DataEncryptionKeyField(editable=True)  # type: ignore[arg-type]
 
     def test_init__default_not_allowed(self):
         """Cannot create DataEncryptionKeyField with default value."""
@@ -77,7 +77,7 @@ class TestDataEncryptionKeyField(TestCase):
     def test_init__null_allowed(self):
         """Cannot create DataEncryptionKeyField with null=True."""
         with self.assert_raises_validation_error(code="null_not_allowed"):
-            DataEncryptionKeyField(null=False)
+            DataEncryptionKeyField(null=False)  # type: ignore[arg-type]
 
     def test_init(self):
         """DataEncryptionKeyField is constructed correctly."""
@@ -93,7 +93,6 @@ class TestDataEncryptionKeyField(TestCase):
         """DataEncryptionKeyField is deconstructed correctly."""
         _, _, _, kwargs = self.field.deconstruct()
 
-        assert kwargs["editable"] is False
         assert kwargs["null"] is True
         assert (
             kwargs["verbose_name"]
@@ -136,11 +135,11 @@ class TestDataEncryptionKeyField(TestCase):
         """DataEncryptionKeyField is contributed to model correctly."""
         with self.subTest("Class attribute set correctly"):
             Model = self._get_model_class()
-            assert Model.DEK_FIELD == Model.dek
+            assert Model.DEK_FIELD == Model.dek.field.attname
 
         with self.subTest("Instance attribute set correctly"):
             instance = Model()
-            assert instance.DEK_FIELD == instance.dek
+            assert instance.DEK_FIELD == Model.dek.field.attname
 
     # --------------------------------------------------------------------------
     # Descriptor Methods Tests
@@ -152,6 +151,11 @@ class TestDataEncryptionKeyField(TestCase):
         assert isinstance(Model.dek, DataEncryptionKeyField.descriptor_class)
         assert Model.dek.field == self.field
 
+    def test_get__none(self):
+        """Getting field from instance returns None if DEK is not set."""
+        instance = self._get_model_instance()
+        assert instance.dek is None
+
     def test_get__value(self):
         """Getting field from instance returns the DEK bytes."""
         instance = self._get_model_instance()
@@ -160,13 +164,6 @@ class TestDataEncryptionKeyField(TestCase):
         assert isinstance(dek_value, bytes)
         assert dek_value == instance.__dict__["dek"]
 
-    def test_set__default(self):
-        """Setting field to _TrustedDek sets to DEK bytes."""
-        instance = self._get_model_instance()
-        trusted_dek = _TrustedDek(b"dek")
-        instance.dek = trusted_dek
-        assert trusted_dek.dek == instance.__dict__["dek"]
-
     def test_set__none(self):
         """Setting field to None sets to None."""
         instance = self._get_model_instance()
@@ -174,8 +171,9 @@ class TestDataEncryptionKeyField(TestCase):
         instance.dek = None
         assert instance.__dict__["dek"] is None
 
-    def test_set__cannot_set_value(self):
-        """Setting field to any value other than None or _TrustedDek raises."""
+    def test_set__bytes(self):
+        """Setting field to bytes with valid prefix sets to DEK bytes."""
         instance = self._get_model_instance()
-        with self.assert_raises_validation_error(code="cannot_set_value"):
-            instance.dek = b"some_value"
+        dek = b"some_value"
+        instance.dek = dek
+        assert instance.__dict__["dek"] == dek

@@ -19,31 +19,28 @@ model instance, which would lead to ambiguity and potential data loss.
 """
 
 import typing as t
-from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
 from django.db.models import BinaryField
 from django.utils.translation import gettext_lazy as _
 
-from ...types import KwArgs
 from ..base_data_encryption_key import BaseDataEncryptionKeyModel
+from ..utils import is_real_model_class
 from .deferred_attribute import DeferredAttribute
+
+if t.TYPE_CHECKING:  # pragma: no cover
+    from django_stubs_ext import StrOrPromise
+
 
 AnyDataEncryptionKeyField = t.TypeVar(
     "AnyDataEncryptionKeyField", bound="DataEncryptionKeyField"
 )
-
-
-@dataclass(frozen=True)
-class _TrustedDek:
-    """A wrapper for a DEK that comes directly from the database."""
-
-    dek: bytes
+Dek: t.TypeAlias = t.Union[bytes, memoryview]
 
 
 class DataEncryptionKeyAttribute(
     DeferredAttribute[
-        AnyDataEncryptionKeyField, BaseDataEncryptionKeyModel, bytes
+        AnyDataEncryptionKeyField, BaseDataEncryptionKeyModel, Dek
     ],
     t.Generic[AnyDataEncryptionKeyField],
 ):
@@ -51,26 +48,13 @@ class DataEncryptionKeyAttribute(
     Descriptor for DataEncryptionKeyField that handles data shredding.
     """
 
-    def __set__(
-        self,
-        instance,
-        value: t.Optional[_TrustedDek],  # type: ignore[override]
-    ):
+    def __set__(self, instance, value):
         # Clear any cached DEK AEAD.
         if instance.pk is not None and instance.pk in instance.DEK_AEAD_CACHE:
             instance.DEK_AEAD_CACHE.pop(instance.pk, None)
 
-        if isinstance(value, _TrustedDek):  # From DB.
-            internal_value = value.dek
-        elif value is None:  # Data is being shredded.
-            internal_value = None
-        else:
-            raise ValidationError(
-                "DataEncryptionKeyField can only be set to None.",
-                code="cannot_set_value",
-            )
-
-        super().__set__(instance, internal_value)
+        # Set the internal value on the instance.
+        super().__set__(instance, value)
 
 
 class DataEncryptionKeyField(BinaryField):
@@ -91,15 +75,17 @@ class DataEncryptionKeyField(BinaryField):
         "The encrypted data encryption key (DEK) for this model."
     )
 
-    def set_init_kwargs(self, kwargs: KwArgs):
-        """Sets common init kwargs."""
-        kwargs["editable"] = False  # DEK should not be editable in admin forms
-        kwargs["null"] = True  # Allow null for data shredding
-        kwargs.setdefault("verbose_name", _(self.default_verbose_name))
-        kwargs.setdefault("help_text", _(self.default_help_text))
-
-    def __init__(self, **kwargs):
-        if kwargs.get("editable", False):
+    def __init__(
+        self,
+        # DEK should not be editable in admin forms.
+        editable: t.Literal[False] = False,
+        # Allow null for data shredding.
+        null: t.Literal[True] = True,
+        verbose_name: t.Optional["StrOrPromise"] = _(default_verbose_name),
+        help_text: "StrOrPromise" = _(default_help_text),
+        **kwargs,
+    ):
+        if editable:
             raise ValidationError(
                 "DataEncryptionKeyField cannot be editable.",
                 code="editable_not_allowed",
@@ -109,20 +95,20 @@ class DataEncryptionKeyField(BinaryField):
                 "DataEncryptionKeyField cannot have a default value.",
                 code="default_not_allowed",
             )
-        if not kwargs.get("null", True):
+        if not null:
             raise ValidationError(
                 "DataEncryptionKeyField must allow null to support data"
                 " shredding.",
                 code="null_not_allowed",
             )
 
-        self.set_init_kwargs(kwargs)
-        super().__init__(**kwargs)
-
-    def deconstruct(self):
-        name, path, args, kwargs = super().deconstruct()
-        self.set_init_kwargs(kwargs)
-        return name, path, args, kwargs
+        super().__init__(
+            **kwargs,
+            editable=editable,
+            null=null,
+            verbose_name=verbose_name,
+            help_text=help_text,
+        )
 
     # --------------------------------------------------------------------------
     # Django Model Field Integration
@@ -131,8 +117,8 @@ class DataEncryptionKeyField(BinaryField):
     def contribute_to_class(self, cls, name, private_only=False):
         super().contribute_to_class(cls, name, private_only)
 
-        # Skip fake models used for migrations.
-        if cls.__module__ == "__fake__":
+        # Skip non-real models.
+        if not is_real_model_class(cls):
             return
 
         # Ensure the model subclasses BaseDataEncryptionKeyModel.
@@ -145,7 +131,7 @@ class DataEncryptionKeyField(BinaryField):
             )
 
         # Ensure only one DEK field per model.
-        if cls.DEK_FIELD is not None:
+        if hasattr(cls, "DEK_FIELD"):
             raise ValidationError(
                 f"'{cls.__module__}.{cls.__name__}' already has a"
                 " DataEncryptionKeyField defined.",
@@ -153,7 +139,7 @@ class DataEncryptionKeyField(BinaryField):
             )
 
         # Set the class DEK field reference.
-        cls.DEK_FIELD = getattr(cls, self.name)
+        cls.DEK_FIELD = self.attname
 
     # --------------------------------------------------------------------------
     # Descriptor Methods
@@ -180,16 +166,3 @@ class DataEncryptionKeyField(BinaryField):
 
     # Can only be set to None to allow data shredding.
     def __set__(self, instance: BaseDataEncryptionKeyModel, value: None): ...
-
-    # pylint: disable-next=unused-argument
-    def from_db_value(self, value: t.Optional[bytes], expression, connection):
-        """
-        Converts a value as returned by the database to a Python object.
-        We wrap the raw bytes in _TrustedDek to signal that this is an
-        existing DEK from the database, not new plaintext.
-        """
-        if value is None:
-            return None
-
-        # Wrap it so __set__ knows this is NOT new user input.
-        return _TrustedDek(value)

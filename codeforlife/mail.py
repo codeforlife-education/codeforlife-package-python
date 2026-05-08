@@ -74,7 +74,7 @@ def add_contact(
     # pylint: enable=line-too-long
 
     if auth is None:
-        auth = settings.MAIL_AUTH
+        auth = settings.MAIL_AUTH()
 
     contact: JsonDict = {"email": email.lower()}
     if opt_in_type is not None:
@@ -186,7 +186,7 @@ def remove_contact(
         return True
 
     if auth is None:
-        auth = settings.MAIL_AUTH
+        auth = settings.MAIL_AUTH()
 
     response = requests.delete(
         # pylint: disable-next=line-too-long
@@ -256,7 +256,7 @@ def send_mail(
     # pylint: enable=line-too-long
 
     if auth is None:
-        auth = settings.MAIL_AUTH
+        auth = settings.MAIL_AUTH()
 
     body = {
         "campaignId": campaign_id,

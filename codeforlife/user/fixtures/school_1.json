@@ -3,19 +3,29 @@
     "model": "user.school",
     "pk": 2,
     "fields": {
-      "name": "School 1",
+      "_name_enc": "ZmFrZV9lbmM67d4VVL/VNF+xT49FGteqYAb5nww953xETgWD4Dbq/Wx+Jtoe",
+      "_name_plain": "School 1",
       "country": "GB",
-      "county": "Hertfordshire"
+      "county": "Hertfordshire",
+      "dek": "ZmFrZV9lbmM66Fc74ze1ks+0BusoBSk4Dq31Ze7K2owjJGHhyqul8ZDPLqqAdJfTXCTK7l9f0EHNZBrAHwioXhVm3iFi"
     }
   },
   {
     "model": "user.user",
     "pk": 23,
     "fields": {
-      "first_name": "John",
-      "last_name": "Doe",
-      "username": "teacher@school1.com",
-      "email": "teacher@school1.com",
+      "_email_enc": "ZmFrZV9lbmM6nDdT0za7YSuF59q1VhuJvT8qHbDLH+/ap65hrlVnwgSRkpRcj452UPQ/3IQ3H5s=",
+      "_email_hash": "d23e2f365e919be1cf5e29a5472801d54bd75c6f360bce7c37674506bc63a9ce",
+      "_email_plain": "teacher@school1.com",
+      "_first_name_enc": "ZmFrZV9lbmM6KHAoomsgzlenkIf3O3B1HkeoBYLCHnmBSzdbpebUfr0=",
+      "_first_name_hash": "7554c6b4930e0ac2c4d7fb5e7e266797b0444953067a0d7a17e835b518229e84",
+      "_first_name_plain": "John",
+      "_last_name_enc": "ZmFrZV9lbmM6UiD5C/IkRNEYEE7NgaGlAdMc+Le7fUhUCXNyEwEVYQ==",
+      "_last_name_plain": "Doe",
+      "_username_enc": "ZmFrZV9lbmM6jV4xfKt2ER8uTjc56hdndNVFL5ZUpxwF8xmVreNQRpfz9PDHF226iw7U14MmLBk=",
+      "_username_hash": "d23e2f365e919be1cf5e29a5472801d54bd75c6f360bce7c37674506bc63a9ce",
+      "_username_plain": "teacher@school1.com",
+      "dek": "ZmFrZV9lbmM6jirqlzqds7vw9lM1WNsHUk7eGuT1X5EcZFvj77aL6V86oRw09V90ANLPNUUjOnNYvbb0BBh0EKT/j198",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }
   },
@@ -23,35 +33,43 @@
     "model": "user.userprofile",
     "pk": 23,
     "fields": {
-      "user": 23,
-      "is_verified": true
+      "is_verified": true,
+      "user": 23
     }
   },
   {
     "model": "user.teacher",
     "pk": 6,
     "fields": {
-      "user": 23,
       "new_user": 23,
-      "school": 2
+      "school": 2,
+      "user": 23
     }
   },
   {
     "model": "user.class",
     "pk": 6,
     "fields": {
-      "name": "Class 1 @ School 1",
-      "access_code": "ZZ111",
-      "teacher": 6,
-      "accept_requests_until": "9999-02-09 20:26:08.298402+00:00"
+      "_access_code_enc": "ZmFrZV9lbmM60BDe75Jx8mLFNVE4Fj6A47qgtKnwj40qYBgA2/PdcJqJ",
+      "_access_code_hash": "ca366870cf5e795a3c9ff340f119df2ff646128cf164d992b0167bbca8c247eb",
+      "_access_code_plain": "ZZ111",
+      "_name_enc": "ZmFrZV9lbmM6GE5ywQd6ChB38qHTDtALv40nO1RQu1ty7Azups4SMdlBAfNUh93EdK65vyHrMg==",
+      "_name_plain": "Class 1 @ School 1",
+      "accept_requests_until": "9999-02-09 20:26:08.298402+00:00",
+      "teacher": 6
     }
   },
   {
     "model": "user.user",
     "pk": 27,
     "fields": {
-      "first_name": "Student1",
-      "username": "111111111111111111111111111111",
+      "_first_name_enc": "ZmFrZV9lbmM68LydJ3q0a8MRqB/aobe1wf3XPUOZZV/ibILf8bFjWeeTLVLY",
+      "_first_name_hash": "341d77ca3f20f1a3ddf8d9a06d076940c6e24b252a08c5dae066b43c2b236ed5",
+      "_first_name_plain": "Student1",
+      "_username_enc": "ZmFrZV9lbmM6fgGMjMvNBd0UtOYl4ZheNodBdcSjPsVmLYrIES+t5PbSSw66LNdmCAXLWefCbQu3Nlf4m3ESwd/3cw==",
+      "_username_hash": "1a3a828a1d7b20c8c9bd4d3677dcd8e5df6352c950b2d99e04a77cdc291fbfbe",
+      "_username_plain": "111111111111111111111111111111",
+      "dek": "ZmFrZV9lbmM6LLCQnwBkWTs27wN70fGx1S1a32s9SB4bd7w/qwEf38c4rhaXQaoBQr3yjcSD9KpBFUcngCtFpeKvwVYE",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }
   },
@@ -59,27 +77,35 @@
     "model": "user.userprofile",
     "pk": 27,
     "fields": {
-      "user": 27,
-      "is_verified": true
+      "is_verified": true,
+      "user": 27
     }
   },
   {
     "model": "user.student",
     "pk": 17,
     "fields": {
-      "user": 27,
+      "class_field": 6,
       "new_user": 27,
-      "class_field": 6
+      "user": 27
     }
   },
   {
     "model": "user.user",
     "pk": 24,
     "fields": {
-      "first_name": "Jane",
-      "last_name": "Doe",
-      "username": "admin.teacher@school1.com",
-      "email": "admin.teacher@school1.com",
+      "_email_enc": "ZmFrZV9lbmM6oYdBxX01WxnO+2XvH4GcDYl8JVoGDYqCmB8u5hDlu33j84hMIU0c0rXh7X3EbVDqPaviQGY=",
+      "_email_hash": "01c1e0721b31cb0636da3f5b3dc1a107bdd44fd0185fa12dd87f6aad06c91a08",
+      "_email_plain": "admin.teacher@school1.com",
+      "_first_name_enc": "ZmFrZV9lbmM6ehSIW3xreQS4cUAXbBMnqq6OA7uS9iYEI9Y7iNOVDS4=",
+      "_first_name_hash": "a5945caf6491a22426f870debae98c823043af86691d336f95248daff7bb989a",
+      "_first_name_plain": "Jane",
+      "_last_name_enc": "ZmFrZV9lbmM6uf/W7NPtVAiFRyiZCwzvPOWrYa1KeBZT/HcZhoO1MQ==",
+      "_last_name_plain": "Doe",
+      "_username_enc": "ZmFrZV9lbmM6PLx6EXzPQG/RgVjD718xICsjsz++Wir/jtJhP/5yqpPPNeLj7fjx3Zb7+VwO3Q5q8xDMOcY=",
+      "_username_hash": "01c1e0721b31cb0636da3f5b3dc1a107bdd44fd0185fa12dd87f6aad06c91a08",
+      "_username_plain": "admin.teacher@school1.com",
+      "dek": "ZmFrZV9lbmM6r5c/ViTs1yOJQrGRIkZcCR/7qyNWgWrWpbrj8lOhNUnsDhr31RvKy50cNcKauKJvpLWlVzXI2XLbQ2BJ",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }
   },
@@ -87,26 +113,29 @@
     "model": "user.userprofile",
     "pk": 24,
     "fields": {
-      "user": 24,
-      "is_verified": true
+      "is_verified": true,
+      "user": 24
     }
   },
   {
     "model": "user.teacher",
     "pk": 7,
     "fields": {
-      "user": 24,
+      "is_admin": true,
       "new_user": 24,
       "school": 2,
-      "is_admin": true
+      "user": 24
     }
   },
   {
     "model": "user.class",
     "pk": 7,
     "fields": {
-      "name": "Class 2 @ School 1",
-      "access_code": "ZZ222",
+      "_access_code_enc": "ZmFrZV9lbmM6UjOO6ScOIUFHcbbcDkSzaWAQY3PaW7GNeRWTQ73zcpTl",
+      "_access_code_hash": "e90c6683965279b92914a9e2b18716f0bc826c0dccb5976130562ff88cbd7f01",
+      "_access_code_plain": "ZZ222",
+      "_name_enc": "ZmFrZV9lbmM6ghwPnoQhhjiDpIsfE2ufqAMOaXJAuiwUZ7nwuRLu208FZznOJkbXb3FKy9iE4Q==",
+      "_name_plain": "Class 2 @ School 1",
       "teacher": 7
     }
   },
@@ -114,8 +143,13 @@
     "model": "user.user",
     "pk": 29,
     "fields": {
-      "first_name": "Student2",
-      "username": "222222222222222222222222222222",
+      "_first_name_enc": "ZmFrZV9lbmM6WTlhK3trdBVmqjtck1x0Jemd/5F1xq/hu5ghMYR+W+HRRsCj",
+      "_first_name_hash": "f7ecf0b3ebd27342b1a6d30a6ef300b6dc23518fd5c83ca25cdc2b7135927cf8",
+      "_first_name_plain": "Student2",
+      "_username_enc": "ZmFrZV9lbmM6r10EMezevJm9pQjvClWd/Rx06lfTdlIRYzsYEUcAq+V0yPYcafJ63+j+6jbHBcOR8qlXYoBw10mOHA==",
+      "_username_hash": "69a7b577f2249a789e2a12ee80ee669c30ff20872c94153abeb3ebc05a61be08",
+      "_username_plain": "222222222222222222222222222222",
+      "dek": "ZmFrZV9lbmM6cbR+gLNfBr+zos590Nlz8I2AbW1AS5A7Jo+iFzvK4bOn3OmQAw7QaTDGb7+n+Bquc74bWG9OwNz/eu70",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }
   },
@@ -123,27 +157,30 @@
     "model": "user.userprofile",
     "pk": 29,
     "fields": {
-      "user": 29,
-      "is_verified": true
+      "is_verified": true,
+      "user": 29
     }
   },
   {
     "model": "user.student",
     "pk": 19,
     "fields": {
-      "user": 29,
+      "class_field": 7,
       "new_user": 29,
-      "class_field": 7
+      "user": 29
     }
   },
   {
     "model": "user.class",
     "pk": 10,
     "fields": {
-      "name": "Class 3 @ School 1",
-      "access_code": "ZZ333",
-      "teacher": 7,
-      "accept_requests_until": "2023-02-09 20:26:08.298402+00:00"
+      "_access_code_enc": "ZmFrZV9lbmM64FGWxjHz//y120LjO3pVfij0ZhFZixOLE8Z57vaYOPCW",
+      "_access_code_hash": "3e3b96d4c7775a2c8d15999f6d662b164ccf3d66b8df93329bd5e426251d8cdb",
+      "_access_code_plain": "ZZ333",
+      "_name_enc": "ZmFrZV9lbmM6d6hSPPotg2fBEgOhd6IRzrvlWYQxFaSv4v/FS7uXG7YxNB2XBq2k0Y08ZrhFtQ==",
+      "_name_plain": "Class 3 @ School 1",
+      "accept_requests_until": "2023-02-09 20:26:08.298402+00:00",
+      "teacher": 7
     }
   }
 ]

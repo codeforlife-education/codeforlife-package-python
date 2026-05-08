@@ -23,7 +23,9 @@ AnyUser = t.TypeVar("AnyUser", bound=User)
 # pylint: disable-next=missing-class-docstring,too-few-public-methods
 class ContactableUserManager(UserManager[AnyUser], t.Generic[AnyUser]):
     def filter_users(self, queryset: QuerySet[User]):
-        return queryset.exclude(email__isnull=True).exclude(email="")
+        return queryset.exclude(_email_plain__isnull=True).exclude(
+            _email_plain=""
+        )
 
 
 # pylint: disable-next=too-many-ancestors
@@ -52,6 +54,7 @@ class ContactableUser(User):
         personalization_values: t.Optional[t.Dict[str, str]] = None,
         **kwargs,
     ):
+        """Send an email to this user using DotDigital."""
         kwargs["to_addresses"] = [self.email]
         mail.send_mail(
             campaign_id=campaign_id,

@@ -3,10 +3,18 @@
     "model": "user.user",
     "pk": 28,
     "fields": {
-      "first_name": "Indy",
-      "last_name": "Requester",
-      "username": "indy.requester@email.com",
-      "email": "indy.requester@email.com",
+      "_email_enc": "ZmFrZV9lbmM6BbOMTZgfEvfGWqqJMXewiatccqnrYAwXP0TL2Yg0XcRCkDjU88u6fN7m92841onGLZd38g==",
+      "_email_hash": "8efc7683cec3a31792d0c22f49a1cc374ba2ae2199b3cb8d228a7cbabe8370b2",
+      "_email_plain": "indy.requester@email.com",
+      "_first_name_enc": "ZmFrZV9lbmM6pCLIN/sWZNWKMxn/nDrhIxPqZJOvgjlMCMMbSP6LavQ=",
+      "_first_name_hash": "c90d2a9004eccdad8bec752f90ffe656955c44a81f984d3d32b827f17b473d7c",
+      "_first_name_plain": "Indy",
+      "_last_name_enc": "ZmFrZV9lbmM6/3o0FjosbmbS1oVTg10ezTJdBjsJBeuKxIHRFNBmZPASWT+9dA==",
+      "_last_name_plain": "Requester",
+      "_username_enc": "ZmFrZV9lbmM6JGWj0OAH3zI4LTiClJre31xNzlULtOKIzFOS6JgTsFfMkeDtW6VSWme6PwPwn294DfkYbw==",
+      "_username_hash": "8efc7683cec3a31792d0c22f49a1cc374ba2ae2199b3cb8d228a7cbabe8370b2",
+      "_username_plain": "indy.requester@email.com",
+      "dek": "ZmFrZV9lbmM6L2LWK8EitcxU86uC69XSb5nbOso2Hsy7FjBH14+a3er944CPFMfyBfV0x3Hs3fxjYHMqP/hUpoPxRx6g",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }
   },
@@ -14,27 +22,35 @@
     "model": "user.userprofile",
     "pk": 28,
     "fields": {
-      "user": 28,
-      "is_verified": true
+      "is_verified": true,
+      "user": 28
     }
   },
   {
     "model": "user.student",
     "pk": 18,
     "fields": {
-      "user": 28,
       "new_user": 28,
-      "pending_class_request": 6
+      "pending_class_request": 6,
+      "user": 28
     }
   },
   {
     "model": "user.user",
     "pk": 30,
     "fields": {
-      "first_name": "Indy",
-      "last_name": "NoRequest",
-      "username": "indy@email.com",
-      "email": "indy@email.com",
+      "_email_enc": "ZmFrZV9lbmM6cGgLFQ0NIcL8dvu9xyEsz5Stwyvl7Qp9OYPPnCQAv/+ZO6yF2vjR6iI1",
+      "_email_hash": "63e90930d7617f596f1006362382d81aecb8308c5a9893007f78c50e954e6d1a",
+      "_email_plain": "indy@email.com",
+      "_first_name_enc": "ZmFrZV9lbmM6P0Fsz+sx2cuXNgTPn0AoikMvFz67Uy2F6X+I2kCPTOg=",
+      "_first_name_hash": "c90d2a9004eccdad8bec752f90ffe656955c44a81f984d3d32b827f17b473d7c",
+      "_first_name_plain": "Indy",
+      "_last_name_enc": "ZmFrZV9lbmM6aOhhzg9mD3C0ROh1lCuDC1XKskZ6DYh6ajmv7jRUFFx4GyBY4w==",
+      "_last_name_plain": "NoRequest",
+      "_username_enc": "ZmFrZV9lbmM6Mex03gOlRJsMhPARyGhxY10G8lrOTR0l7LSV3AeH2IgllqHHMkd8fkvB",
+      "_username_hash": "63e90930d7617f596f1006362382d81aecb8308c5a9893007f78c50e954e6d1a",
+      "_username_plain": "indy@email.com",
+      "dek": "ZmFrZV9lbmM6kNpc5tLn74rFhZeIxmToumntwifCY5oqPfrL3VTp7Xa962lNlx3jEdSyUbn2WjHaAHLrKWINQQX9f6dp",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }
   },
@@ -42,16 +58,16 @@
     "model": "user.userprofile",
     "pk": 30,
     "fields": {
-      "user": 30,
-      "is_verified": true
+      "is_verified": true,
+      "user": 30
     }
   },
   {
     "model": "user.student",
     "pk": 20,
     "fields": {
-      "user": 30,
-      "new_user": 30
+      "new_user": 30,
+      "user": 30
     }
   }
 ]

@@ -9,30 +9,26 @@ import typing as t
 from datetime import datetime, timedelta
 
 from django.conf import settings
-
-# pylint: disable-next=imported-auth-user
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import PermissionsMixin
 from django.contrib.auth.models import UserManager as _UserManager
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
 from django.db.models.query import QuerySet
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from pyotp import TOTP
 
-from ....models import AbstractBaseUser
+from ....models import AbstractBaseUser, DataEncryptionKeyModel
+from ....models.fields import EncryptedTextField, Sha256Field
 from ....types import Validators
 from ....validators import UnicodeAlphanumericCharSetValidator
 
 if t.TYPE_CHECKING:  # pragma: no cover
-    from django_stubs_ext.db.models import TypedModelMeta
-
     from ..auth_factor import AuthFactor
     from ..otp_bypass_token import OtpBypassToken
     from ..session import Session
     from ..student import Student
     from ..teacher import Teacher
-else:
-    TypedModelMeta = object
 
 
 # TODO: add to model validators in new schema.
@@ -50,21 +46,86 @@ user_last_name_validators: Validators = [
 ]
 
 
-# TODO: remove in new schema
-class _AbstractBaseUser(AbstractBaseUser):
-    password: str = None  # type: ignore[assignment]
-    last_login: datetime = None  # type: ignore[assignment]
-
-    class Meta(TypedModelMeta):
-        abstract = True
+AnyUser = t.TypeVar("AnyUser", bound="User")
 
 
-# pylint: disable-next=too-many-ancestors
-class User(
-    _AbstractBaseUser,
-    AbstractUser,  # TODO: remove this inheritance in new schema
+class UserManager(
+    _UserManager[AnyUser],
+    DataEncryptionKeyModel.Manager[AnyUser],
+    t.Generic[AnyUser],
 ):
-    """A proxy to Django's user class."""
+    """
+    Manager for the User model that inherits Django's default manager and
+    encrypted manager to handle encrypted fields.
+    """
+
+    def _create_user_object(
+        self,
+        username: str,
+        email: t.Optional[str],
+        password: t.Optional[str],
+        **extra_fields,
+    ):
+        self._inject_dek_kwarg(extra_fields)
+        return super()._create_user_object(  # type: ignore[misc]
+            username=username, email=email, password=password, **extra_fields
+        )
+
+    # pylint: disable=missing-function-docstring
+
+    # @classmethod
+    # def normalize_email(cls, email):
+    #     return super().normalize_email(email).lower()
+
+    # def get_by_natural_key(self, username):
+    #     return self.get(_username_hash__sha256=username)
+
+    # async def aget_by_natural_key(self, username):
+    #     return await self.aget(_username_hash__sha256=username)
+
+    # pylint: enable=missing-function-docstring
+
+    def filter_users(self, queryset: QuerySet["User"]):
+        """Filter the users to the specific type.
+
+        Args:
+            queryset: The queryset of users to filter.
+
+        Returns:
+            A subset of the queryset of users.
+        """
+        return queryset
+
+    # pylint: disable-next=missing-function-docstring
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return (
+            queryset
+            if getattr(settings, "OLD_SYSTEM", True)
+            else self.filter_users(queryset.filter(is_active=True))
+        )
+
+
+# pylint: disable-next=too-many-ancestors,too-many-instance-attributes
+class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
+    """A Code for Life user."""
+
+    associated_data = "user"
+    field_aliases = {
+        "username": {"_username_plain", "_username_enc", "_username_hash"},
+        "first_name": {
+            "_first_name_plain",
+            "_first_name_enc",
+            "_first_name_hash",
+        },
+        "last_name": {"_last_name_plain", "_last_name_enc"},
+        "email": {"_email_plain", "_email_enc", "_email_hash"},
+    }
+
+    EMAIL_FIELD = "_email_plain"
+    USERNAME_FIELD = "_username_plain"
+    REQUIRED_FIELDS = ["_email_plain"]
+    credential_fields = frozenset(["email", "password"])
 
     _password: t.Optional[str]
 
@@ -75,7 +136,164 @@ class User(
     session: "Session"  # type: ignore[assignment]
     userprofile: "UserProfile"
 
-    credential_fields = frozenset(["email", "password"])
+    # --------------------------------------------------------------------------
+    # Username
+    # --------------------------------------------------------------------------
+
+    _username_hash = Sha256Field(
+        verbose_name=_("username hash"),
+        db_column="username_hash",
+        unique=True,
+        null=True,
+    )
+    _username_plain = models.CharField(
+        _("username"),
+        max_length=150,
+        unique=True,
+        help_text=_(
+            "Required. 150 characters or fewer. "
+            "Letters, digits and @/./+/-/_ only."
+        ),
+        validators=[UnicodeUsernameValidator()],
+        error_messages={
+            "unique": _("A user with that username already exists."),
+        },
+    )
+    _username_enc = EncryptedTextField(
+        associated_data="username",
+        db_column="username_enc",
+        null=True,
+        verbose_name=_("username"),
+    )
+
+    @property
+    def username(self):
+        """The user's username."""
+        if self._username_enc is not None:
+            return EncryptedTextField.get(self, "_username_enc")
+        return self._username_plain
+
+    @username.setter
+    def username(self, value: str):
+        """Set the user's username."""
+        self._username_plain = value
+        EncryptedTextField.set(self, value, "_username_enc")
+        Sha256Field.set(self, value, "_username_hash")
+
+    # --------------------------------------------------------------------------
+    # First name
+    # --------------------------------------------------------------------------
+
+    _first_name_hash = Sha256Field(
+        verbose_name=_("first name hash"),
+        db_column="first_name_hash",
+        null=True,
+    )
+    _first_name_plain = models.CharField(
+        _("first name"), max_length=150, blank=True
+    )
+    _first_name_enc = EncryptedTextField(
+        associated_data="first_name",
+        db_column="first_name_enc",
+        null=True,
+        verbose_name=_("first name"),
+    )
+
+    @property
+    def first_name(self):
+        """The user's first name."""
+        if self._first_name_enc is not None:
+            return EncryptedTextField.get(self, "_first_name_enc")
+        return self._first_name_plain
+
+    @first_name.setter
+    def first_name(self, value: str):
+        """Set the user's first name."""
+        self._first_name_plain = value
+        EncryptedTextField.set(self, value, "_first_name_enc")
+        Sha256Field.set(self, value, "_first_name_hash")
+
+    # --------------------------------------------------------------------------
+    # Last name
+    # --------------------------------------------------------------------------
+
+    _last_name_plain = models.CharField(
+        _("last name"), max_length=150, blank=True
+    )
+    _last_name_enc = EncryptedTextField(
+        associated_data="last_name",
+        db_column="last_name_enc",
+        null=True,
+        verbose_name=_("last name"),
+    )
+
+    @property
+    def last_name(self):
+        """The user's last name."""
+        if self._last_name_enc is not None:
+            return EncryptedTextField.get(self, "_last_name_enc")
+        return self._last_name_plain
+
+    @last_name.setter
+    def last_name(self, value: str):
+        """Set the user's last name."""
+        self._last_name_plain = value
+        EncryptedTextField.set(self, value, "_last_name_enc")
+
+    # --------------------------------------------------------------------------
+    # Email
+    # --------------------------------------------------------------------------
+
+    _email_hash = Sha256Field(
+        verbose_name=_("email hash"),
+        db_column="email_hash",
+        null=True,
+    )
+    _email_plain = models.EmailField(_("email address"), blank=True)
+    _email_enc = EncryptedTextField(
+        associated_data="email",
+        db_column="email_enc",
+        null=True,
+        verbose_name=_("email address"),
+    )
+
+    @property
+    def email(self):
+        """The user's email address."""
+        if self._email_enc is not None:
+            return EncryptedTextField.get(self, "_email_enc")
+        return self._email_plain
+
+    @email.setter
+    def email(self, value: str):
+        """Set the user's email address."""
+        value = self.__class__.objects.normalize_email(value)
+        self._email_plain = value
+        EncryptedTextField.set(self, value, "_email_enc")
+        Sha256Field.set(self, value, "_email_hash")
+
+    # --------------------------------------------------------------------------
+    # Other
+    # --------------------------------------------------------------------------
+
+    is_staff = models.BooleanField(
+        _("staff status"),
+        default=False,
+        help_text=_(
+            "Designates whether the user can log into this admin site."
+        ),
+    )
+
+    is_active = models.BooleanField(
+        _("active"),
+        default=True,
+        help_text=_(
+            "Designates whether this user should be treated as active. "
+            "Unselect this instead of deleting accounts."
+        ),
+    )
+
+    date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
 
     class Meta:
         verbose_name = _("user")
@@ -95,6 +313,10 @@ class User(
         blank=True,
         null=True,
     )
+
+    objects: UserManager[  # type: ignore[misc]
+        "User"
+    ] = UserManager()  # type: ignore[assignment]
 
     @property
     def is_authenticated(self):
@@ -189,28 +411,21 @@ class User(
 
     def anonymize(self):
         """Anonymize the user."""
-        self.first_name = ""
-        self.last_name = ""
-        self.email = ""
+        self.dek = None
         self.is_active = False
-        self.save(
-            update_fields=[
-                "first_name",
-                "last_name",
-                "email",
-                "username",
-                "is_active",
-            ]
-        )
+        self.save(update_fields=["dek", "is_active"])
 
-        self.userprofile.google_refresh_token = None
-        self.userprofile.google_sub = None
-        self.userprofile.save(
-            update_fields=[
-                "google_refresh_token",
-                "google_sub",
-            ]
-        )
+        # self.userprofile.google_refresh_token = None
+        # self.userprofile.google_sub = None
+        # self.userprofile.save(
+        #     update_fields=[
+        #         "google_refresh_token",
+        #         "google_sub",
+        #     ]
+        # )
+
+    def __repr__(self):
+        return f"<User: {self.pk}>"
 
 
 if not getattr(settings, "OLD_SYSTEM", True):
@@ -222,33 +437,18 @@ if not getattr(settings, "OLD_SYSTEM", True):
     User.is_verified = property(fget=is_verified)  # type: ignore[assignment]
 
 
-AnyUser = t.TypeVar("AnyUser", bound=User)
-
-
-# pylint: disable-next=missing-class-docstring
-class UserManager(_UserManager[AnyUser], t.Generic[AnyUser]):
-    def filter_users(self, queryset: QuerySet[User]):
-        """Filter the users to the specific type.
-
-        Args:
-            queryset: The queryset of users to filter.
-
-        Returns:
-            A subset of the queryset of users.
-        """
-        return queryset
-
-    # pylint: disable-next=missing-function-docstring
-    def get_queryset(self):
-        return self.filter_users(super().get_queryset().filter(is_active=True))
-
-
+# TODO: merge the UserProfile model into the User model and delete it.
 class UserProfile(models.Model):
     """A user's profile."""
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
+    # NOTE: this is not currently used in production. when it is, it should be:
+    # 1. moved to the User model
+    # 2. made non-nullable with a default generator of a random string
+    # 3. converted into an EncryptedTextField
     otp_secret = models.CharField(max_length=40, null=True, blank=True)
+
     last_otp_for_time = models.DateTimeField(null=True, blank=True)
     developer = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)

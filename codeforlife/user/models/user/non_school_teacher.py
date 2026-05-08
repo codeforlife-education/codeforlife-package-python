@@ -24,6 +24,7 @@ AnyUser = t.TypeVar("AnyUser", bound="User")
 # pylint: disable-next=missing-class-docstring,too-few-public-methods
 class NonSchoolTeacherUserManager(TeacherUserManager["NonSchoolTeacherUser"]):
     def filter_users(self, queryset: QuerySet["User"]):
+        """Filter users to include only teachers not in a school."""
         return (
             super()
             .filter_users(queryset)

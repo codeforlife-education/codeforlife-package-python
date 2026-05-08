@@ -12,8 +12,11 @@ import os
 import typing as t
 from pathlib import Path
 
-# pylint: disable-next=import-error
+# pylint: disable=import-error
 from setuptools import find_packages, setup  # type: ignore[import-untyped]
+from setuptools.command.build_py import build_py  # type: ignore[import-untyped]
+
+# pylint: enable=import-error
 
 from codeforlife import DATA_DIR, TEMPLATES_DIR, __version__
 from codeforlife.user import FIXTURES_DIR as USER_FIXTURES_DIR
@@ -24,6 +27,24 @@ PACKAGE_DIR = os.path.dirname(__file__)
 
 with open("README.md", "r", encoding="utf-8") as readme:
     long_description = readme.read()
+
+
+# pylint: disable-next=too-few-public-methods
+class BuildPy(build_py):
+    """Custom build command to exclude test files."""
+
+    def find_package_modules(self, package: str, package_dir: str):
+        """Find all modules in the package, excluding test files."""
+        return [
+            module
+            for module in t.cast(
+                t.List[t.Tuple[str, str, str]],
+                super().find_package_modules(package, package_dir),
+            )
+            if not (
+                module[1].endswith("_test") or module[1].startswith("test_")
+            )
+        ]
 
 
 # Walk through data directory and get relative file paths.
@@ -98,8 +119,9 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/ocadotechnology/codeforlife-package-python",
-    # TODO: exclude test files
-    packages=find_packages(exclude=["tests", "tests.*"]),
+    packages=find_packages(include=["codeforlife", "codeforlife.*"]),
+    package_dir={"codeforlife": "codeforlife"},
+    cmdclass={"build_py": BuildPy},
     include_package_data=True,
     data_files=[
         get_data_files(DATA_DIR),

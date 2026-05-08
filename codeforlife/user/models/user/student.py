@@ -27,6 +27,7 @@ AnyUser = t.TypeVar("AnyUser", bound=User)
 
 # pylint: disable-next=missing-class-docstring,too-few-public-methods
 class StudentUserManager(UserManager["StudentUser"]):
+    # pylint: disable-next=arguments-renamed
     def create_user(  # type: ignore[override]
         self, first_name: str, klass: "Class", **extra_fields
     ):
@@ -140,7 +141,8 @@ class StudentUser(User):
         """Generate a random username that is unique."""
         username = None
         while (
-            username is None or User.objects.filter(username=username).exists()
+            username is None
+            or User.objects.filter(_username_hash__sha256=username).exists()
         ):
             username = get_random_string(length=30)
 

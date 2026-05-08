@@ -55,7 +55,7 @@ class GoogleOAuth2TokenCache(
                         "grant_type": "refresh_token",
                         "refresh_token": user.userprofile.google_refresh_token,
                         "client_id": settings.GOOGLE_CLIENT_ID,
-                        "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                        "client_secret": settings.GOOGLE_CLIENT_SECRET(),
                     },
                     timeout=10,
                 )

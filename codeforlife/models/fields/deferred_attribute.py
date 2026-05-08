@@ -34,7 +34,7 @@ class DeferredAttribute(_DeferredAttribute, t.Generic[AnyField, AnyModel, T]):
         self, instance: t.Optional[AnyModel], cls=None  # type: ignore[override]
     ):
         return t.cast(
-            t.Optional[T],
+            t.Union[t.Self, t.Optional[T]],
             super().__get__(instance, cls),  # type: ignore[misc]
         )
 

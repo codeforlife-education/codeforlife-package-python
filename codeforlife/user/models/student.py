@@ -32,7 +32,9 @@ class StudentModelManager(models.Manager):
 
         while True:
             random_username = uuid4().hex[:30]  # generate a random username
-            if not User.objects.filter(username=random_username).exists():
+            if not User.objects.filter(
+                _username_plain=random_username
+            ).exists():
                 return random_username
 
     # pylint: disable-next=invalid-name
@@ -84,7 +86,11 @@ class Student(models.Model):
         on_delete=models.CASCADE,
     )
 
-    # hashed uuid used for the unique direct login url
+    # NOTE: hashed uuid used for the unique direct login url
+    # TODO: this is currently hashed using sha256 without a salt. this should be
+    # updated to use the Sha256Field which hashes the value using Django's
+    # secret key as a salt. This will require generating new values for existing
+    # students.
     login_id: str
     login_id = models.CharField(  # type: ignore[assignment]
         max_length=64,

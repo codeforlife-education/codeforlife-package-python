@@ -37,10 +37,6 @@ class TestEncryptedModel(ModelTestCase[EncryptedModel]):
         with self.assert_raises_validation_error(code="cannot_update"):
             Person.objects.update(name="Alice")
 
-    def test_objects___aupdate(self):
-        """Cannot aupdate encrypted field via objects.aupdate()."""
-        assert Person.objects.aupdate is None
-
     def test_objects___bulk_update(self):
         """Cannot bulk update encrypted field via objects.bulk_update()."""
         assert Person.objects.bulk_update is None
@@ -75,53 +71,53 @@ class TestEncryptedModel(ModelTestCase[EncryptedModel]):
         """Check for missing associated_data."""
 
         # pylint: disable-next=abstract-method
-        class E001(EncryptedModel):
+        class EncryptedE001(EncryptedModel):
             class Meta(TypedModelMeta):
                 app_label = "codeforlife.user"
 
-        self.assert_check(error_id="encrypted.E001", model_class=E001)
+        self.assert_check(error_id="encrypted.E001", model_class=EncryptedE001)
 
     def test_check__e002(self):
         """Check for string associated_data."""
 
         # pylint: disable-next=abstract-method
-        class E002(EncryptedModel):
+        class EncryptedE002(EncryptedModel):
             associated_data = 123  # type: ignore[assignment]
 
             class Meta(TypedModelMeta):
                 app_label = "codeforlife.user"
 
-        self.assert_check(error_id="encrypted.E002", model_class=E002)
+        self.assert_check(error_id="encrypted.E002", model_class=EncryptedE002)
 
     def test_check__e003(self):
         """Check for non-empty associated_data."""
 
         # pylint: disable-next=abstract-method
-        class E003(EncryptedModel):
+        class EncryptedE003(EncryptedModel):
             associated_data = ""
 
             class Meta(TypedModelMeta):
                 app_label = "codeforlife.user"
 
-        self.assert_check(error_id="encrypted.E003", model_class=E003)
+        self.assert_check(error_id="encrypted.E003", model_class=EncryptedE003)
 
     def test_check__e004(self):
         """Check for unique associated_data."""
 
         # pylint: disable-next=abstract-method
-        class E004(EncryptedModel):
+        class EncryptedE004(EncryptedModel):
             associated_data = OtpBypassToken.associated_data
 
             class Meta(TypedModelMeta):
                 app_label = "codeforlife.user"
 
-        self.assert_check(error_id="encrypted.E004", model_class=E004)
+        self.assert_check(error_id="encrypted.E004", model_class=EncryptedE004)
 
     def test_check__e005(self):
         """Check manager subclasses EncryptedModel.Manager."""
 
         # pylint: disable-next=abstract-method
-        class E005(EncryptedModel):
+        class EncryptedE005(EncryptedModel):
             associated_data = "example"
 
             objects = models.Manager()  # type: ignore[assignment]
@@ -129,4 +125,4 @@ class TestEncryptedModel(ModelTestCase[EncryptedModel]):
             class Meta(TypedModelMeta):
                 app_label = "codeforlife.user"
 
-        self.assert_check(error_id="encrypted.E005", model_class=E005)
+        self.assert_check(error_id="encrypted.E005", model_class=EncryptedE005)

@@ -8,7 +8,6 @@ import codeforlife.user.models.user.non_school_teacher
 import codeforlife.user.models.user.school_teacher
 import codeforlife.user.models.user.student
 import codeforlife.user.models.user.teacher
-import codeforlife.user.models.user.user
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
@@ -21,12 +20,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # migrations.AlterModelManagers(
-        #     name="user",
-        #     managers=[
-        #         ("objects", codeforlife.user.models.user.user.UserManager())
-        #     ],
-        # ),
         migrations.CreateModel(
             name="ContactableUser",
             fields=[],

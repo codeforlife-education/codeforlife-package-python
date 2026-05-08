@@ -4,12 +4,14 @@ Created on 20/02/2024 at 15:37:52(+00:00).
 """
 
 import typing as t
-from uuid import uuid4
 
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
 
+from ...models import DataEncryptionKeyModel
+from ...models.fields import EncryptedTextField
 from ...types import Validators
 from ...validators import UnicodeAlphanumericCharSetValidator
 
@@ -26,7 +28,7 @@ school_name_validators: Validators = [
 ]
 
 
-class SchoolModelManager(models.Manager):
+class SchoolModelManager(DataEncryptionKeyModel.Manager["School"]):
     """Manager for School model."""
 
     def get_original_queryset(self):
@@ -38,14 +40,46 @@ class SchoolModelManager(models.Manager):
         return super().get_queryset().filter(is_active=True)
 
 
-class School(models.Model):
+class School(DataEncryptionKeyModel):
     """A school."""
 
-    name: str
-    name = models.CharField(  # type: ignore[assignment]
+    associated_data = "school"
+    field_aliases = {
+        "name": {"_name_plain", "_name_enc"},
+    }
+
+    # --------------------------------------------------------------------------
+    # Name
+    # --------------------------------------------------------------------------
+    # pylint: disable=duplicate-code
+
+    _name_plain: str
+    _name_plain = models.CharField(  # type: ignore[assignment]
         max_length=200,
         unique=True,
     )
+    _name_enc = EncryptedTextField(
+        associated_data="name",
+        null=True,
+        verbose_name=_("name"),
+        db_column="name_enc",
+    )
+
+    @property
+    def name(self):
+        """Get the school's name."""
+        if self._name_enc is not None:
+            return EncryptedTextField.get(self, "_name_enc")
+        return self._name_plain
+
+    @name.setter
+    def name(self, value: str):
+        """Set the school's name."""
+        self._name_plain = value
+        EncryptedTextField.set(self, value, "_name_enc")
+
+    # pylint: enable=duplicate-code
+    # --------------------------------------------------------------------------
 
     country: t.Optional[str]
     country = CountryField(  # type: ignore[assignment]
@@ -54,7 +88,6 @@ class School(models.Model):
         blank=True,
     )
 
-    # TODO: Create an Address model to house address details
     county: t.Optional[str]
     county = models.CharField(  # type: ignore[assignment]
         max_length=50,
@@ -71,7 +104,9 @@ class School(models.Model):
     is_active: bool
     is_active = models.BooleanField(default=True)  # type: ignore[assignment]
 
-    objects = SchoolModelManager()
+    objects: SchoolModelManager = (
+        SchoolModelManager()  # type: ignore[assignment]
+    )
 
     def __str__(self):
         return self.name
@@ -98,6 +133,6 @@ class School(models.Model):
 
     def anonymise(self):
         """Anonymize the school."""
-        self.name = uuid4().hex
+        self.dek = None
         self.is_active = False
-        self.save()
+        self.save(update_fields=["dek", "is_active"])

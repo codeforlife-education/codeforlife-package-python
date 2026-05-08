@@ -34,6 +34,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from .base import Model
+from .utils import is_real_model_class
 
 if t.TYPE_CHECKING:
     from django_stubs_ext.db.models import TypedModelMeta
@@ -55,7 +56,9 @@ class EncryptedModel(Model):
     ENCRYPTED_FIELDS: t.List["BaseEncryptedField"]
 
     def __init__(self, *args, **kwargs):
-        # Each instance gets its own dict of decrypted values.
+        # Each instance gets its own dict of pending-encryption and decrypted
+        # values.
+        self.__pending_encryption_values__: t.Dict[str, t.Any] = {}
         self.__decrypted_values__: t.Dict[str, t.Any] = {}
         super().__init__(*args, **kwargs)
 
@@ -89,7 +92,6 @@ class EncryptedModel(Model):
             return super().update(**kwargs)
 
         # Disable bulk operations that would bypass field-level encryption.
-        aupdate: t.Never = None  # type: ignore[assignment]
         bulk_update: t.Never = None  # type: ignore[assignment]
         abulk_update: t.Never = None  # type: ignore[assignment]
         bulk_create: t.Never = None  # type: ignore[assignment]
@@ -97,20 +99,22 @@ class EncryptedModel(Model):
         in_bulk: t.Never = None  # type: ignore[assignment]
         ain_bulk: t.Never = None  # type: ignore[assignment]
 
+    base_manager_class: t.Type[Manager] = Manager
     objects: Manager["EncryptedModel"] = Manager()  # type: ignore[assignment]
 
     class Meta(TypedModelMeta):
         abstract = True
 
     @classmethod
-    def _check_associated_data(cls, **kwargs):
+    def _check_associated_data(cls):
         """
         Check 'associated_data' values are unique across all EncryptedModel
         subclasses.
         """
         errors: t.List[checks.Error] = []
 
-        if cls._meta.abstract:
+        # Skip non-real models.
+        if not is_real_model_class(cls):
             return errors
 
         # Ensure associated_data is defined.
@@ -149,7 +153,7 @@ class EncryptedModel(Model):
                 if (
                     # pylint: disable-next=too-many-boolean-expressions
                     not model is cls
-                    and not model._meta.abstract
+                    and is_real_model_class(model)
                     and issubclass(model, EncryptedModel)
                     and hasattr(model, "associated_data")
                     and isinstance(model.associated_data, str)
@@ -175,16 +179,16 @@ class EncryptedModel(Model):
     def check(cls, **kwargs):
         """Run model checks, including custom checks for encrypted models."""
         errors = super().check(**kwargs)
-        errors.extend(cls._check_associated_data(**kwargs))
+        errors.extend(cls._check_associated_data())
 
-        if not issubclass(cls.objects.__class__, EncryptedModel.Manager):
+        if not issubclass(cls.objects.__class__, cls.base_manager_class):
             errors.append(
                 checks.Error(
-                    "EncryptedModel subclasses must use the"
-                    " EncryptedModel.Manager.",
+                    f"{cls.__name__} must have a manager that is a subclass of"
+                    f" {cls.base_manager_class.__name__}.",
                     hint=(
-                        f"Set 'objects = EncryptedModel.Manager()' on"
-                        f" {cls.__module__}.{cls.__name__}."
+                        f"Set 'objects = {cls.base_manager_class.__name__}()' "
+                        f"on {cls.__module__}.{cls.__name__}."
                     ),
                     obj=cls,
                     id="encrypted.E005",

@@ -93,7 +93,7 @@ class OtpBypassToken(EncryptedModel):
 
     @property
     def dek_aead(self):
-        return self.user.userprofile.dek_aead  # type: ignore[attr-defined]
+        return self.user.dek_aead  # type: ignore[attr-defined]
 
     def save(self, *args, **kwargs):
         raise IntegrityError("Cannot create or update a single instance.")

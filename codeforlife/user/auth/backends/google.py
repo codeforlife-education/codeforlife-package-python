@@ -42,7 +42,7 @@ class GoogleBackend(BaseBackend):
                 "code_verifier": code_verifier,
                 "redirect_uri": redirect_uri,
                 "client_id": settings.GOOGLE_CLIENT_ID,
-                "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                "client_secret": settings.GOOGLE_CLIENT_SECRET(),
                 "grant_type": "authorization_code",
             },
             timeout=5,
