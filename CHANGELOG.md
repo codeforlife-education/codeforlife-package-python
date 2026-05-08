@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.32.6 (2026-04-10)
+
+### Bug Fixes
+
+- Upgrade cryptography, django and requests
+  ([`80bd8d7`](https://github.com/ocadotechnology/codeforlife-package-python/commit/80bd8d7c626a8d3629df87009c469f798f965337))
+
+
 ## v0.32.5 (2026-03-25)
 
 ### Bug Fixes
