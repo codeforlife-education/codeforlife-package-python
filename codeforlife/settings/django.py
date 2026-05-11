@@ -211,6 +211,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "src",
     "codeforlife.user",
+    "codeforlife.legacy",  # TODO: remove this once legacy system is removed
     "corsheaders",
     "rest_framework",
     "django_filters",
