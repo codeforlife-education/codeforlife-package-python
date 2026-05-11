@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 from . import app_settings
 
 

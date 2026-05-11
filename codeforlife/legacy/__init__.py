@@ -1,1 +1,3 @@
-default_app_config = "common.apps.CommonConfig"
+# pylint: skip-file
+
+# default_app_config = "codeforlife.legacy.apps.LegacyConfig"

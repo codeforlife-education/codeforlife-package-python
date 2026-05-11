@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 """CSP Config"""
 
 from .app_settings import ENV, domain

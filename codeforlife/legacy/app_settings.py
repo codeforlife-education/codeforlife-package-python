@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 from codeforlife.settings import ENV, LatestSecret
 from django.conf import settings
 

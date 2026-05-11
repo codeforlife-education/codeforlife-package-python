@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 from functools import wraps
 
 from django.http import Http404, HttpResponseRedirect

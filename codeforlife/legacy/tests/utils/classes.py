@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 from typing import Tuple
 
 from ...helpers.generators import generate_access_code

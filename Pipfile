@@ -23,6 +23,12 @@ google-cloud-secret-manager = "==2.27.0"
 google-crc32c = "==1.8.0"
 tink = {version = "==1.13.0", extras = ["gcpkms"]}
 cachetools = "==6.2.6"
+django-import-export = "==4.2.0" # TODO: remove this once legacy system is removed
+django-pipeline = "==4.1.0" # TODO: remove this once legacy system is removed
+django-two-factor-auth = "==1.18.1" # TODO: remove this once legacy system is removed
+libsass = "==0.23.0" # TODO: remove this once legacy system is removed
+more-itertools = "==8.7.0" # TODO: remove this once legacy system is removed
+pgeocode = "==0.4.0" # TODO: remove this once legacy system is removed
 
 [dev-packages]
 black = "==24.8.0"

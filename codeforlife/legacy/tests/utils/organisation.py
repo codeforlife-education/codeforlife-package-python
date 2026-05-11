@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 from ...models import School, Teacher
 
 

@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 from builtins import range
 from typing import Tuple
 from unittest.mock import patch

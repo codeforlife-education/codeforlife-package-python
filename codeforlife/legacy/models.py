@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 import re
 
 from codeforlife.user.models import (

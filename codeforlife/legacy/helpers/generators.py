@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 import hashlib
 import random
 import string

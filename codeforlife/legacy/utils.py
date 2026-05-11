@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import redirect_to_login
 from django.core.cache import cache

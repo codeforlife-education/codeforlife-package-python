@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 import datetime
 import json
 from enum import Enum, auto
