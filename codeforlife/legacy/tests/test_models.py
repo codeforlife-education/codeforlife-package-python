@@ -1,4 +1,5 @@
 # pylint: skip-file
+# type: ignore
 
 from django.test import TestCase
 from django.utils import timezone

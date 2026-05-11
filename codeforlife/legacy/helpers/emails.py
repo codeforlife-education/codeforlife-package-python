@@ -1,4 +1,5 @@
 # pylint: skip-file
+# type: ignore
 
 import datetime
 import json

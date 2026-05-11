@@ -1,4 +1,5 @@
 # pylint: skip-file
+# type: ignore
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone

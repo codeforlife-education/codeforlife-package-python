@@ -1,4 +1,5 @@
 # pylint: skip-file
+# type: ignore
 
 import typing as t
 from dataclasses import dataclass

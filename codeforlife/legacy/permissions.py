@@ -1,4 +1,5 @@
 # pylint: skip-file
+# type: ignore
 
 from functools import wraps
 
