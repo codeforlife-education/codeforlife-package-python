@@ -110,7 +110,7 @@ def generate_independent_student_details():
 generate_independent_student_details.next_id = 1
 
 
-@patch("common.helpers.emails.send_dotdigital_email")
+@patch("codeforlife.legacy.helpers.emails.send_dotdigital_email")
 def create_independent_student(page, mock_send_dotdigital_email):
     page = page.go_to_signup_page()
 

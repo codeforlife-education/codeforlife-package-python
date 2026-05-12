@@ -65,7 +65,7 @@ def signup_duplicate_teacher_fail(
     return page, email_address, password
 
 
-@patch("common.helpers.emails.send_dotdigital_email")
+@patch("codeforlife.legacy.helpers.emails.send_dotdigital_email")
 def signup_teacher(page, mock_send_dotdigital_email, newsletter=False):
     page = page.go_to_signup_page()
 
