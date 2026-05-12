@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.34.1 (2026-05-12)
+
+### Bug Fixes
+
+- Rename templates and static files
+  ([`c95b554`](https://github.com/ocadotechnology/codeforlife-package-python/commit/c95b5546a7117762b55eada42fcbd94fed250fb3))
+
+
 ## v0.34.0 (2026-05-12)
 
 ### Features
