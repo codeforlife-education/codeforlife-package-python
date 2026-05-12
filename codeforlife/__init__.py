@@ -15,6 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR.joinpath("data")
 TEMPLATES_DIR = BASE_DIR.joinpath("templates")
 USER_DIR = BASE_DIR.joinpath("user")
+LEGACY_DIR = BASE_DIR.joinpath("legacy")
 
 
 def set_up_settings(service_base_dir: Path, service_name: str):
