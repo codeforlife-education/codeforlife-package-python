@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.34.0 (2026-05-12)
+
+### Features
+
+- Workspace 1111 ([#178](https://github.com/ocadotechnology/codeforlife-package-python/pull/178),
+  [`81754b4`](https://github.com/ocadotechnology/codeforlife-package-python/commit/81754b45cecd2226c9ea7ee5728657cb41398553))
+
+
 ## v0.33.0 (2026-05-08)
 
 ### Features
