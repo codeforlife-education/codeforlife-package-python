@@ -18,9 +18,7 @@ from setuptools.command.build_py import build_py  # type: ignore[import-untyped]
 
 # pylint: enable=import-error
 
-from codeforlife import DATA_DIR, TEMPLATES_DIR, __version__
-from codeforlife.user import FIXTURES_DIR as USER_FIXTURES_DIR
-from codeforlife.user import TEMPLATES_DIR as USER_TEMPLATES_DIR
+from codeforlife import DATA_DIR, TEMPLATES_DIR, __version__, user, legacy
 
 # Get the absolute path of the package.
 PACKAGE_DIR = os.path.dirname(__file__)
@@ -125,9 +123,11 @@ setup(
     include_package_data=True,
     data_files=[
         get_data_files(DATA_DIR),
-        get_data_files(USER_FIXTURES_DIR),
         get_data_files(TEMPLATES_DIR),
-        get_data_files(USER_TEMPLATES_DIR),
+        get_data_files(user.FIXTURES_DIR),
+        get_data_files(user.TEMPLATES_DIR),
+        get_data_files(legacy.STATIC_DIR),
+        get_data_files(legacy.TEMPLATES_DIR),
     ],
     package_data={"codeforlife": ["py.typed"]},
     python_requires="==3.12.*",

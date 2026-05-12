@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "codeforlife.user",
+    "codeforlife.legacy",  # TODO: remove this once legacy system is removed
 ]
 
 MIDDLEWARE = [
