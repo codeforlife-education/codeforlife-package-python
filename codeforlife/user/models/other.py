@@ -10,12 +10,16 @@ integrated or removed in the new schema in the future.
 import typing as t
 from uuid import uuid4
 
+from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from ...models import EncryptedModel
 from ...models.fields import EncryptedTextField, Sha256Field
+from ...models.fields.decorators import validated_field_setter
+from ...types import Validators
+from .user import User
 
 if t.TYPE_CHECKING:  # pragma: no cover
     from datetime import datetime
@@ -235,19 +239,10 @@ class SchoolTeacherInvitation(EncryptedModel):
 
     associated_data = "school_teacher_invitation"
     field_aliases = {
-        "token": {"_token_plain", "_token_enc", "_token_hash"},
-        "invited_teacher_first_name": {
-            "_invited_teacher_first_name_plain",
-            "_invited_teacher_first_name_enc",
-        },
-        "invited_teacher_last_name": {
-            "_invited_teacher_last_name_plain",
-            "_invited_teacher_last_name_enc",
-        },
-        "invited_teacher_email": {
-            "_invited_teacher_email_plain",
-            "_invited_teacher_email_enc",
-        },
+        "token": {"_token_enc", "_token_hash"},
+        "invited_teacher_first_name": {"_invited_teacher_first_name_enc"},
+        "invited_teacher_last_name": {"_invited_teacher_last_name_enc"},
+        "invited_teacher_email": {"_invited_teacher_email_enc"},
     }
 
     # --------------------------------------------------------------------------
@@ -256,29 +251,25 @@ class SchoolTeacherInvitation(EncryptedModel):
 
     _token_hash = Sha256Field(
         verbose_name=_("token hash"),
-        null=True,
         db_column="token_hash",
     )
-    _token_plain: str
-    _token_plain = models.CharField(max_length=88)  # type: ignore[assignment]
     _token_enc = EncryptedTextField(
         associated_data="token",
-        null=True,
         verbose_name=_("token"),
         db_column="token_enc",
     )
 
+    token_validators: Validators = [MaxLengthValidator(88)]
+
     @property
     def token(self):
         """Get the decrypted token value."""
-        if self._token_enc is not None:
-            return EncryptedTextField.get(self, "_token_enc")
-        return self._token_plain
+        return EncryptedTextField.get(self, "_token_enc")
 
     @token.setter
+    @validated_field_setter(*token_validators)
     def token(self, value: str):
         """Sets the token value."""
-        self._token_plain = value
         EncryptedTextField.set(self, value, "_token_enc")
         Sha256Field.set(self, value, "_token_hash")
 
@@ -304,14 +295,8 @@ class SchoolTeacherInvitation(EncryptedModel):
     # First name
     # --------------------------------------------------------------------------
 
-    _invited_teacher_first_name_plain: str
-    # pylint: disable-next=line-too-long
-    _invited_teacher_first_name_plain = models.CharField(  # type: ignore[assignment]
-        max_length=150
-    )  # Same as User model
     _invited_teacher_first_name_enc = EncryptedTextField(
         associated_data="invited_teacher_first_name",
-        null=True,
         verbose_name=_("invited teacher first name"),
         db_column="invited_teacher_first_name_enc",
     )
@@ -319,30 +304,20 @@ class SchoolTeacherInvitation(EncryptedModel):
     @property
     def invited_teacher_first_name(self):
         """Get the decrypted invited teacher first name value."""
-        if self._invited_teacher_first_name_enc is not None:
-            return EncryptedTextField.get(
-                self, "_invited_teacher_first_name_enc"
-            )
-        return self._invited_teacher_first_name_plain
+        return EncryptedTextField.get(self, "_invited_teacher_first_name_enc")
 
     @invited_teacher_first_name.setter
+    @validated_field_setter(*User.first_name_validators)
     def invited_teacher_first_name(self, value: str):
         """Sets the invited teacher first name value."""
-        self._invited_teacher_first_name_plain = value
         EncryptedTextField.set(self, value, "_invited_teacher_first_name_enc")
 
     # --------------------------------------------------------------------------
     # Last name
     # --------------------------------------------------------------------------
 
-    _invited_teacher_last_name_plain: str
-    # pylint: disable-next=line-too-long
-    _invited_teacher_last_name_plain = models.CharField(  # type: ignore[assignment]
-        max_length=150
-    )  # Same as User model
     _invited_teacher_last_name_enc = EncryptedTextField(
         associated_data="invited_teacher_last_name",
-        null=True,
         verbose_name=_("invited teacher last name"),
         db_column="invited_teacher_last_name_enc",
     )
@@ -350,30 +325,20 @@ class SchoolTeacherInvitation(EncryptedModel):
     @property
     def invited_teacher_last_name(self):
         """Get the decrypted invited teacher last name value."""
-        if self._invited_teacher_last_name_enc is not None:
-            return EncryptedTextField.get(
-                self, "_invited_teacher_last_name_enc"
-            )
-        return self._invited_teacher_last_name_plain
+        return EncryptedTextField.get(self, "_invited_teacher_last_name_enc")
 
     @invited_teacher_last_name.setter
+    @validated_field_setter(*User.last_name_validators)
     def invited_teacher_last_name(self, value: str):
         """Sets the invited teacher last name value."""
-        self._invited_teacher_last_name_plain = value
         EncryptedTextField.set(self, value, "_invited_teacher_last_name_enc")
 
     # --------------------------------------------------------------------------
     # Email
     # --------------------------------------------------------------------------
 
-    # TODO: Switch to a CharField to be able to hold hashed value
-    _invited_teacher_email_plain: str
-    _invited_teacher_email_plain = (
-        models.EmailField()  # type: ignore[assignment]
-    )  # Same as User model
     _invited_teacher_email_enc = EncryptedTextField(
         associated_data="invited_teacher_email",
-        null=True,
         verbose_name=_("invited teacher email"),
         db_column="invited_teacher_email_enc",
     )
@@ -381,14 +346,12 @@ class SchoolTeacherInvitation(EncryptedModel):
     @property
     def invited_teacher_email(self):
         """Get the decrypted invited teacher email value."""
-        if self._invited_teacher_email_enc is not None:
-            return EncryptedTextField.get(self, "_invited_teacher_email_enc")
-        return self._invited_teacher_email_plain
+        return EncryptedTextField.get(self, "_invited_teacher_email_enc")
 
     @invited_teacher_email.setter
+    @validated_field_setter(*User.email_validators)
     def invited_teacher_email(self, value: str):
         """Sets the invited teacher email value."""
-        self._invited_teacher_email_plain = value
         EncryptedTextField.set(self, value, "_invited_teacher_email_enc")
 
     # --------------------------------------------------------------------------

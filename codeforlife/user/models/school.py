@@ -5,27 +5,20 @@ Created on 20/02/2024 at 15:37:52(+00:00).
 
 import typing as t
 
+from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
 
 from ...models import DataEncryptionKeyModel
-from ...models.fields import EncryptedTextField
+from ...models.fields import EncryptedTextField, Sha256Field
+from ...models.fields.decorators import validated_field_setter
 from ...types import Validators
 from ...validators import UnicodeAlphanumericCharSetValidator
 
 if t.TYPE_CHECKING:  # pragma: no cover
     from datetime import datetime
-
-
-# TODO: add to School.name field-validators in new schema.
-school_name_validators: Validators = [
-    UnicodeAlphanumericCharSetValidator(
-        spaces=True,
-        special_chars="'.",
-    )
-]
 
 
 class SchoolModelManager(DataEncryptionKeyModel.Manager["School"]):
@@ -45,7 +38,7 @@ class School(DataEncryptionKeyModel):
 
     associated_data = "school"
     field_aliases = {
-        "name": {"_name_plain", "_name_enc"},
+        "name": {"_name_hash", "_name_enc"},
     }
 
     # --------------------------------------------------------------------------
@@ -53,29 +46,35 @@ class School(DataEncryptionKeyModel):
     # --------------------------------------------------------------------------
     # pylint: disable=duplicate-code
 
-    _name_plain: str
-    _name_plain = models.CharField(  # type: ignore[assignment]
-        max_length=200,
+    _name_hash = Sha256Field(
+        verbose_name=_("name hash"),
+        db_column="name_hash",
         unique=True,
+        null=True,
     )
     _name_enc = EncryptedTextField(
         associated_data="name",
-        null=True,
         verbose_name=_("name"),
         db_column="name_enc",
     )
 
+    name_validators: Validators = [
+        MaxLengthValidator(200),
+        UnicodeAlphanumericCharSetValidator(
+            spaces=True,
+            special_chars="'.",
+        ),
+    ]
+
     @property
     def name(self):
         """Get the school's name."""
-        if self._name_enc is not None:
-            return EncryptedTextField.get(self, "_name_enc")
-        return self._name_plain
+        return EncryptedTextField.get(self, "_name_enc")
 
     @name.setter
+    @validated_field_setter(*name_validators)
     def name(self, value: str):
         """Set the school's name."""
-        self._name_plain = value
         EncryptedTextField.set(self, value, "_name_enc")
 
     # pylint: enable=duplicate-code

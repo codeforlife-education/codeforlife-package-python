@@ -14,6 +14,7 @@ from django.utils.translation import gettext_lazy as _
 
 from ...models import EncryptedModel
 from ...models.fields import EncryptedTextField, Sha256Field
+from ...models.fields.decorators import validated_field_setter
 from ...types import Validators
 from ...validators import (
     UnicodeAlphanumericCharSetValidator,
@@ -29,20 +30,6 @@ if t.TYPE_CHECKING:  # pragma: no cover
     from .teacher import SchoolTeacher, Teacher
 else:
     TypedModelMeta = object
-
-
-class_access_code_validators: Validators = [
-    MinLengthValidator(5),
-    MaxLengthValidator(5),
-    UppercaseAsciiAlphanumericCharSetValidator(),
-]
-
-class_name_validators: Validators = [
-    UnicodeAlphanumericCharSetValidator(
-        spaces=True,
-        special_chars="-_",
-    )
-]
 
 
 class ClassModelManager(EncryptedModel.Manager["Class"]):
@@ -65,38 +52,39 @@ class Class(EncryptedModel):
 
     associated_data = "class"
     field_aliases = {
-        "name": {"_name_plain", "_name_enc"},
-        "access_code": {
-            "_access_code_plain",
-            "_access_code_enc",
-            "_access_code_hash",
-        },
+        "name": {"_name_hash", "_name_enc"},
+        "access_code": {"_access_code_enc", "_access_code_hash"},
     }
 
     # --------------------------------------------------------------------------
     # Name
     # --------------------------------------------------------------------------
 
-    _name_plain: str
-    _name_plain = models.CharField(max_length=200)  # type: ignore[assignment]
+    _name_hash = Sha256Field(
+        verbose_name=_("name hash"),
+        db_column="name_hash",
+        null=True,
+    )
     _name_enc = EncryptedTextField(
         associated_data="name",
         db_column="name_enc",
-        null=True,
         verbose_name=_("name"),
     )
+
+    name_validators: Validators = [
+        MaxLengthValidator(200),
+        UnicodeAlphanumericCharSetValidator(spaces=True, special_chars="-_"),
+    ]
 
     @property
     def name(self):
         """Get the name of the class."""
-        if self._name_enc is not None:
-            return EncryptedTextField.get(self, "_name_enc")
-        return self._name_plain
+        return EncryptedTextField.get(self, "_name_enc")
 
     @name.setter
+    @validated_field_setter(*name_validators)
     def name(self, value: str):
         """Set the name of the class."""
-        self._name_plain = value
         EncryptedTextField.set(self, value, "_name_enc")
 
     # --------------------------------------------------------------------------
@@ -117,11 +105,6 @@ class Class(EncryptedModel):
         null=True,
         db_column="access_code_hash",
     )
-    _access_code_plain: t.Optional[str]
-    _access_code_plain = models.CharField(  # type: ignore[assignment]
-        max_length=5,
-        null=True,
-    )
     _access_code_enc = EncryptedTextField(
         associated_data="access_code",
         null=True,
@@ -129,17 +112,21 @@ class Class(EncryptedModel):
         db_column="access_code_enc",
     )
 
+    access_code_validators: Validators = [
+        MinLengthValidator(5),
+        MaxLengthValidator(5),
+        UppercaseAsciiAlphanumericCharSetValidator(),
+    ]
+
     @property
     def access_code(self):
         """Get the access code for the class."""
-        if self._access_code_enc is not None:
-            return EncryptedTextField.get(self, "_access_code_enc")
-        return self._access_code_plain
+        return EncryptedTextField.get(self, "_access_code_enc")
 
     @access_code.setter
+    @validated_field_setter(*access_code_validators)
     def access_code(self, value: t.Optional[str]):
         """Set the access code for the class."""
-        self._access_code_plain = value
         EncryptedTextField.set(self, value, "_access_code_enc")
         Sha256Field.set(self, value, "_access_code_hash")
 

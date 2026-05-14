@@ -21,7 +21,12 @@ JsonValue = t.Union[None, int, float, str, bool, JsonList, JsonDict]
 DataDict = t.Dict[str, t.Any]
 OrderedDataDict = t.OrderedDict[str, t.Any]
 
-Validators = t.Sequence[t.Callable]
+PropertyGetter = t.Callable[[t.Any], t.Any]
+PropertySetter = t.Callable[[t.Any, t.Any], None]
+PropertyDeleter = t.Callable[[t.Any], None]
+
+Validator = t.Callable[[t.Any], None]
+Validators = t.Sequence[Validator]
 
 LogLevel = t.Literal[
     "CRITICAL",

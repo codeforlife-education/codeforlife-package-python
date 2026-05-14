@@ -8,7 +8,6 @@ from rest_framework import serializers
 from ...serializers import ModelSerializer
 from ..models import Class
 from ..models import User as RequestUser
-from ..models import class_name_validators
 
 # pylint: disable=missing-class-docstring
 # pylint: disable=too-many-ancestors
@@ -22,7 +21,7 @@ class ClassSerializer(ModelSerializer[RequestUser, Class]):
 
     # TODO: add to model validators in new schema.
     name = serializers.CharField(
-        validators=class_name_validators,
+        validators=Class.name_validators,
         max_length=200,
         read_only=True,
     )
