@@ -63,7 +63,6 @@ class Class(EncryptedModel):
     _name_hash = Sha256Field(
         verbose_name=_("name hash"),
         db_column="name_hash",
-        null=True,
     )
     _name_enc = EncryptedTextField(
         associated_data="name",

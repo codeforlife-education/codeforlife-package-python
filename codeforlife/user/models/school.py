@@ -50,7 +50,6 @@ class School(DataEncryptionKeyModel):
         verbose_name=_("name hash"),
         db_column="name_hash",
         unique=True,
-        null=True,
     )
     _name_enc = EncryptedTextField(
         associated_data="name",
