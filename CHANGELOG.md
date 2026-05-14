@@ -1,6 +1,18 @@
 # CHANGELOG
 
 
+## v0.35.0 (2026-05-14)
+
+### Features
+
+- Add extra fields ([#179](https://github.com/ocadotechnology/codeforlife-package-python/pull/179),
+  [`1ad9236`](https://github.com/ocadotechnology/codeforlife-package-python/commit/1ad9236ec7b095468e86853cc5cd3d3b92d10794))
+
+* fix model schema
+
+* hash names
+
+
 ## v0.34.1 (2026-05-12)
 
 ### Bug Fixes
