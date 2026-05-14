@@ -34,7 +34,7 @@ def create_school_student_directly(access_code) -> Tuple[str, str, Student]:
     """
     name, password = generate_school_details()
 
-    klass = Class.objects.get(_access_code_plain=access_code)
+    klass = Class.objects.get(_access_code_hash__sha256=access_code)
 
     student = Student.objects.schoolFactory(klass, name, password)
     return name, password, student
@@ -42,7 +42,7 @@ def create_school_student_directly(access_code) -> Tuple[str, str, Student]:
 
 def create_student_with_direct_login(access_code) -> Tuple[Student, str]:
     name, password = generate_school_details()
-    klass = Class.objects.get(_access_code_plain=access_code)
+    klass = Class.objects.get(_access_code_hash__sha256=access_code)
 
     # use random string for direct login)
     login_id, hashed_login_id = generate_login_id()
