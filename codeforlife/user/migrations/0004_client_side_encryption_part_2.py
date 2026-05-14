@@ -10,6 +10,18 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.AlterField(
+            model_name="schoolteacherinvitation",
+            name="_token_hash",
+            field=Sha256Field(
+                null=True,
+                db_column="token_hash",
+                editable=False,
+                max_length=64,
+                unique=True,
+                verbose_name="token hash",
+            ),
+        ),
         migrations.AddField(
             model_name="school",
             name="_name_hash",

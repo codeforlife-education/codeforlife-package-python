@@ -143,6 +143,7 @@ school_teacher_invitation_migrations = [
         model_name="schoolteacherinvitation",
         name="_token_hash",
         field=Sha256Field(
+            unique=True,
             editable=False,
             max_length=64,
             verbose_name="token hash",
