@@ -4,6 +4,7 @@
     "pk": 3,
     "fields": {
       "_name_enc": "ZmFrZV9lbmM6rDyP9kxRgaY6xKUohQdWebf8Gs94JU03UH5NCdROWyGOpUk5",
+      "_name_hash": "de23670d9df1c898501128f02d31ed462ffef10d0d884cd1807ebfba96c6751c",
       "_name_plain": "School 2",
       "country": "GB",
       "county": "Hertfordshire",
@@ -143,6 +144,7 @@
       "_access_code_hash": "0157477281b2aee7660889207dee1a14756bddd428162de41bada7a02c593ff6",
       "_access_code_plain": "XX111",
       "_name_enc": "ZmFrZV9lbmM6QS58FDOcIpwtt0KJ08wr+sKWQCVBucwv75ScfLpy53RQGS8dRIut/FEBoNUQ2g==",
+      "_name_hash": "9d2590b59d26bcb0df89c9102403bb583445831149f8569feb4a75cb006e71a0",
       "_name_plain": "Class 1 @ School 2",
       "teacher": 8
     }
@@ -201,6 +203,7 @@
       "_access_code_hash": "750df33e8a531e83fddf652344b680983a1555c6dcd8fda80f4af785357b444d",
       "_access_code_plain": "XX222",
       "_name_enc": "ZmFrZV9lbmM65DRSk4ioNDC3lTdBdMzCx8izq6MA3hx1Lv7bVmIB0klrcE/ytKj/2YAOqQF5uA==",
+      "_name_hash": "8e8c44adf55dce807796a63836973c83deca1c78995167d05a02bcac4e45c2e9",
       "_name_plain": "Class 2 @ School 2",
       "teacher": 9
     }

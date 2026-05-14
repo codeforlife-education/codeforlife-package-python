@@ -11,7 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
 
 from ...models import DataEncryptionKeyModel
-from ...models.fields import EncryptedTextField
+from ...models.fields import EncryptedTextField, Sha256Field
 from ...types import Validators
 from ...validators import UnicodeAlphanumericCharSetValidator
 
@@ -45,7 +45,7 @@ class School(DataEncryptionKeyModel):
 
     associated_data = "school"
     field_aliases = {
-        "name": {"_name_plain", "_name_enc"},
+        "name": {"_name_plain", "_name_enc", "_name_hash"},
     }
 
     # --------------------------------------------------------------------------
@@ -53,6 +53,12 @@ class School(DataEncryptionKeyModel):
     # --------------------------------------------------------------------------
     # pylint: disable=duplicate-code
 
+    _name_hash = Sha256Field(
+        verbose_name=_("name hash"),
+        null=True,
+        unique=True,
+        db_column="name_hash",
+    )
     _name_plain: str
     _name_plain = models.CharField(  # type: ignore[assignment]
         max_length=200,
@@ -77,6 +83,7 @@ class School(DataEncryptionKeyModel):
         """Set the school's name."""
         self._name_plain = value
         EncryptedTextField.set(self, value, "_name_enc")
+        Sha256Field.set(self, value, "_name_hash")
 
     # pylint: enable=duplicate-code
     # --------------------------------------------------------------------------

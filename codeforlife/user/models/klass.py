@@ -65,7 +65,7 @@ class Class(EncryptedModel):
 
     associated_data = "class"
     field_aliases = {
-        "name": {"_name_plain", "_name_enc"},
+        "name": {"_name_plain", "_name_enc", "_name_hash"},
         "access_code": {
             "_access_code_plain",
             "_access_code_enc",
@@ -77,6 +77,11 @@ class Class(EncryptedModel):
     # Name
     # --------------------------------------------------------------------------
 
+    _name_hash = Sha256Field(
+        verbose_name=_("name hash"),
+        null=True,
+        db_column="name_hash",
+    )
     _name_plain: str
     _name_plain = models.CharField(max_length=200)  # type: ignore[assignment]
     _name_enc = EncryptedTextField(
@@ -98,6 +103,7 @@ class Class(EncryptedModel):
         """Set the name of the class."""
         self._name_plain = value
         EncryptedTextField.set(self, value, "_name_enc")
+        Sha256Field.set(self, value, "_name_hash")
 
     # --------------------------------------------------------------------------
 
