@@ -85,6 +85,7 @@ class Class(EncryptedModel):
     def name(self, value: str):
         """Set the name of the class."""
         EncryptedTextField.set(self, value, "_name_enc")
+        Sha256Field.set(self, value, "_name_hash")
 
     # --------------------------------------------------------------------------
 

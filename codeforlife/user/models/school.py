@@ -75,6 +75,7 @@ class School(DataEncryptionKeyModel):
     def name(self, value: str):
         """Set the school's name."""
         EncryptedTextField.set(self, value, "_name_enc")
+        Sha256Field.set(self, value, "_name_hash")
 
     # pylint: enable=duplicate-code
     # --------------------------------------------------------------------------
