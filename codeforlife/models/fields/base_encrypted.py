@@ -182,18 +182,28 @@ class BaseEncryptedField(BinaryField, t.Generic[T]):
 
     def _decrypt(self, instance: EncryptedModel, ciphertext: bytes):
         """Decrypts a single value using the DEK and associated data."""
-        data = instance.dek_aead.decrypt(
-            ciphertext=ciphertext,
-            associated_data=self.full_associated_data,
+        data = (
+            b""
+            if ciphertext == b""
+            else instance.dek_aead.decrypt(
+                ciphertext=ciphertext,
+                associated_data=self.full_associated_data,
+            )
         )
 
         return self.bytes_to_value(data)
 
-    def _encrypt(self, instance: EncryptedModel, plaintext: T):
+    def _encrypt(self, instance: EncryptedModel, value: T):
         """Encrypts a single value using the DEK and associated data."""
-        return instance.dek_aead.encrypt(
-            plaintext=self.value_to_bytes(plaintext),
-            associated_data=self.full_associated_data,
+        plaintext = self.value_to_bytes(value)
+
+        return (
+            b""
+            if plaintext == b""
+            else instance.dek_aead.encrypt(
+                plaintext=plaintext,
+                associated_data=self.full_associated_data,
+            )
         )
 
     @staticmethod

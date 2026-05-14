@@ -24,7 +24,7 @@ class Sha256FieldTests(TestCase):
 
     def test_set__none(self):
         """Setting field to None sets to None."""
-        user = User(_email_hash=None)
+        user = User(_email_hash=None)  # type: ignore[misc]
         assert user.__dict__["_email_hash"] is None
 
     def test_hash(self):

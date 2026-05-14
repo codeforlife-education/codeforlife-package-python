@@ -19,7 +19,6 @@ from ...models import EncryptedModel
 from ...models.fields import EncryptedTextField, Sha256Field
 from ...models.fields.decorators import validated_field_setter
 from ...types import Validators
-from .user import User
 
 if t.TYPE_CHECKING:  # pragma: no cover
     from datetime import datetime
@@ -308,9 +307,15 @@ class SchoolTeacherInvitation(EncryptedModel):
         return EncryptedTextField.get(self, "_invited_teacher_first_name_enc")
 
     @invited_teacher_first_name.setter
-    @validated_field_setter(*User.first_name_validators)
     def invited_teacher_first_name(self, value: str):
         """Sets the invited teacher first name value."""
+        # Importing locally to avoid circular import issues.
+        # pylint: disable-next=import-outside-toplevel
+        from .user import User
+
+        for validator in User.first_name_validators:
+            validator(value)
+
         EncryptedTextField.set(self, value, "_invited_teacher_first_name_enc")
 
     # --------------------------------------------------------------------------
@@ -329,9 +334,15 @@ class SchoolTeacherInvitation(EncryptedModel):
         return EncryptedTextField.get(self, "_invited_teacher_last_name_enc")
 
     @invited_teacher_last_name.setter
-    @validated_field_setter(*User.last_name_validators)
     def invited_teacher_last_name(self, value: str):
         """Sets the invited teacher last name value."""
+        # Importing locally to avoid circular import issues.
+        # pylint: disable-next=import-outside-toplevel
+        from .user import User
+
+        for validator in User.last_name_validators:
+            validator(value)
+
         EncryptedTextField.set(self, value, "_invited_teacher_last_name_enc")
 
     # --------------------------------------------------------------------------
@@ -350,9 +361,15 @@ class SchoolTeacherInvitation(EncryptedModel):
         return EncryptedTextField.get(self, "_invited_teacher_email_enc")
 
     @invited_teacher_email.setter
-    @validated_field_setter(*User.email_validators)
     def invited_teacher_email(self, value: str):
         """Sets the invited teacher email value."""
+        # Importing locally to avoid circular import issues.
+        # pylint: disable-next=import-outside-toplevel
+        from .user import User
+
+        for validator in User.email_validators:
+            validator(value)
+
         EncryptedTextField.set(self, value, "_invited_teacher_email_enc")
 
     # --------------------------------------------------------------------------
