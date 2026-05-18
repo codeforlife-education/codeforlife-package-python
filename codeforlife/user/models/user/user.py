@@ -209,7 +209,7 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
         return EncryptedTextField.get(self, "_last_name_enc")
 
     @last_name.setter
-    @validated_field_setter(*last_name_validators)
+    @validated_field_setter(*last_name_validators, blank=True)
     def last_name(self, value: str):
         """Set the user's last name."""
         EncryptedTextField.set(self, value, "_last_name_enc")
@@ -236,7 +236,7 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
         return EncryptedTextField.get(self, "_email_enc")
 
     @email.setter
-    @validated_field_setter(*email_validators)
+    @validated_field_setter(*email_validators, blank=True)
     def email(self, value: str):
         """Set the user's email address."""
         value = self.__class__.objects.normalize_email(value)
