@@ -29,6 +29,7 @@ from ...types import Args, KwArgs
 from ..encrypted import EncryptedModel
 from ..utils import is_real_model_class
 from .deferred_attribute import DeferredAttribute
+from .normalized import Normalize, NormalizedField
 
 T = t.TypeVar("T")
 Ciphertext: t.TypeAlias = t.Union[bytes, memoryview]
@@ -51,14 +52,21 @@ class EncryptedAttribute(
         super().__set__(instance, value)
 
 
-class BaseEncryptedField(BinaryField, t.Generic[T]):
+class BaseEncryptedField(
+    NormalizedField[EncryptedModel, T], BinaryField, t.Generic[T]
+):
     """Binary field base class for storing encrypted typed values."""
 
     model: t.Type[EncryptedModel]
 
     descriptor_class = EncryptedAttribute
 
-    def __init__(self, associated_data: str, **kwargs):
+    def __init__(
+        self,
+        associated_data: str,
+        normalize: Normalize[T] = lambda x: x,
+        **kwargs,
+    ):
         if not associated_data:
             raise ValidationError(
                 "Associated data cannot be empty.",
@@ -66,7 +74,7 @@ class BaseEncryptedField(BinaryField, t.Generic[T]):
             )
         self.associated_data = associated_data
 
-        super().__init__(**kwargs)
+        super().__init__(normalize=normalize, **kwargs)
 
     def deconstruct(self):
         name, path, args, kwargs = t.cast(
@@ -182,18 +190,28 @@ class BaseEncryptedField(BinaryField, t.Generic[T]):
 
     def _decrypt(self, instance: EncryptedModel, ciphertext: bytes):
         """Decrypts a single value using the DEK and associated data."""
-        data = instance.dek_aead.decrypt(
-            ciphertext=ciphertext,
-            associated_data=self.full_associated_data,
+        data = (
+            b""
+            if ciphertext == b""
+            else instance.dek_aead.decrypt(
+                ciphertext=ciphertext,
+                associated_data=self.full_associated_data,
+            )
         )
 
         return self.bytes_to_value(data)
 
-    def _encrypt(self, instance: EncryptedModel, plaintext: T):
+    def _encrypt(self, instance: EncryptedModel, value: T):
         """Encrypts a single value using the DEK and associated data."""
-        return instance.dek_aead.encrypt(
-            plaintext=self.value_to_bytes(plaintext),
-            associated_data=self.full_associated_data,
+        plaintext = self.value_to_bytes(value)
+
+        return (
+            b""
+            if plaintext == b""
+            else instance.dek_aead.encrypt(
+                plaintext=plaintext,
+                associated_data=self.full_associated_data,
+            )
         )
 
     @staticmethod
@@ -239,8 +257,8 @@ class BaseEncryptedField(BinaryField, t.Generic[T]):
 
         return decrypted_value
 
-    @staticmethod
-    def set(instance: EncryptedModel, value: t.Optional[T], field_name: str):
+    @classmethod
+    def set(cls, instance, value, field_name, **kwargs):
         """Set a typed plaintext value for an encrypted field.
 
         The plaintext is staged in pending-encryption storage and encrypted at
@@ -250,6 +268,7 @@ class BaseEncryptedField(BinaryField, t.Generic[T]):
             instance: The model instance on which to set the value.
             value: The plaintext value to set. If None, the field is cleared.
             field_name: The name of the encrypted field to set.
+            normalize: Whether to normalize the value before setting it.
         """
         field = t.cast(
             BaseEncryptedField[T], instance._meta.get_field(field_name)
@@ -259,6 +278,8 @@ class BaseEncryptedField(BinaryField, t.Generic[T]):
         if value is None:
             instance.__pending_encryption_values__.pop(field.attname, None)
         else:
+            if kwargs.get("normalize", True):
+                value = field.normalize(value)
             instance.__pending_encryption_values__[field.attname] = value
 
         # In all cases we need to clear the internal and cached-decrypted value.

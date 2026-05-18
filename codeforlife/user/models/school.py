@@ -31,6 +31,22 @@ school_name_validators: Validators = [
 class SchoolModelManager(DataEncryptionKeyModel.Manager["School"]):
     """Manager for School model."""
 
+    @classmethod
+    def normalize_name(cls, name: str, lower=True):
+        """Normalize a school's name.
+
+        The value is stripped and optionally lowercased.
+
+        Args:
+            name: The name to normalize.
+            lower: Whether to lowercase the name.
+
+        Returns:
+            The normalized name.
+        """
+        name = name.strip()
+        return name.lower() if lower else name
+
     def get_original_queryset(self):
         """Get the original queryset without filtering."""
         return super().get_queryset()
@@ -55,9 +71,11 @@ class School(DataEncryptionKeyModel):
 
     _name_hash = Sha256Field(
         verbose_name=_("name hash"),
-        null=True,
         unique=True,
         db_column="name_hash",
+        normalize=lambda name: SchoolModelManager.normalize_name(
+            name, lower=True
+        ),
     )
     _name_plain: str
     _name_plain = models.CharField(  # type: ignore[assignment]
@@ -66,22 +84,22 @@ class School(DataEncryptionKeyModel):
     )
     _name_enc = EncryptedTextField(
         associated_data="name",
-        null=True,
         verbose_name=_("name"),
         db_column="name_enc",
+        normalize=lambda name: SchoolModelManager.normalize_name(
+            name, lower=False
+        ),
     )
 
     @property
     def name(self):
         """Get the school's name."""
-        if self._name_enc is not None:
-            return EncryptedTextField.get(self, "_name_enc")
-        return self._name_plain
+        return EncryptedTextField.get(self, "_name_enc")
 
     @name.setter
     def name(self, value: str):
         """Set the school's name."""
-        self._name_plain = value
+        self._name_plain = SchoolModelManager.normalize_name(value, lower=False)
         EncryptedTextField.set(self, value, "_name_enc")
         Sha256Field.set(self, value, "_name_hash")
 
