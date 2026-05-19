@@ -1,8 +1,11 @@
 import typing as t
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from threading import Lock
 
 from django.core.exceptions import FieldDoesNotExist
 from django.core.management.base import BaseCommand
-from django.db.models import Model, Q
+from django.db import close_old_connections
+from django.db.models import Model, Q, QuerySet
 
 from ....models.fields import Sha256Field
 
@@ -17,6 +20,28 @@ class Command(BaseCommand):
     """
 
     help = "Normalize encrypted and hash fields for all user models"
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--chunk-size",
+            type=int,
+            default=1000,
+            help="The number of records to process in each batch.",
+        )
+        parser.add_argument(
+            "--enable-threading",
+            action="store_true",
+            help=(
+                "Enable threaded processing where each worker handles a "
+                "chunk of rows."
+            ),
+        )
+        parser.add_argument(
+            "--max-workers",
+            type=int,
+            default=4,
+            help="Maximum thread workers when --enable-threading is used.",
+        )
 
     # Define all models and their fields to process
     MODELS_TO_PROCESS = {
@@ -53,19 +78,42 @@ class Command(BaseCommand):
     }
 
     def handle(self, *args, **options):
+        chunk_size: int = options["chunk_size"]
+        enable_threading: bool = options["enable_threading"]
+        max_workers: int = options["max_workers"]
+
+        if chunk_size < 1:
+            raise ValueError("--chunk-size must be at least 1.")
+
+        if max_workers < 1:
+            raise ValueError("--max-workers must be at least 1.")
+
+        if max_workers > 8:
+            raise ValueError("--max-workers must be <= 8.")
+
         self.stdout.write(
             self.style.SUCCESS("Starting to normalize encrypted fields...")
         )
         self.stdout.write("")
 
         for model_name, config in self.MODELS_TO_PROCESS.items():
-            for field_name in config["fields"]:
+            fields = t.cast(list[str], config["fields"])
+            qs_filter = t.cast(Q | None, config.get("filter"))
+
+            for field_name in fields:
                 self.stdout.write(
                     self.style.HTTP_INFO(
                         f"Processing {model_name}.{field_name}..."
                     )
                 )
-                self.set_field(model_name, field_name, config.get("filter"))
+                self.set_field(
+                    model_name=model_name,
+                    field_name=field_name,
+                    qs_filter=qs_filter,
+                    chunk_size=chunk_size,
+                    enable_threading=enable_threading,
+                    max_workers=max_workers,
+                )
                 self.stdout.write("")
 
         self.stdout.write(
@@ -73,7 +121,13 @@ class Command(BaseCommand):
         )
 
     def set_field(
-        self, model_name: str, field_name: str, qs_filter: Q | None = None
+        self,
+        model_name: str,
+        field_name: str,
+        qs_filter: Q | None = None,
+        chunk_size: int = 1000,
+        enable_threading: bool = False,
+        max_workers: int = 4,
     ):
         """Set encrypted and hash field values for a model field."""
         from codeforlife.user import models
@@ -154,23 +208,89 @@ class Command(BaseCommand):
 
         self.stdout.write(f"  Hashing {count} instances...")
 
-        # Set the chunk size for bulk updates and initialize an empty list to
-        # hold instances to be updated.
-        chunk_size = 1000
+        if enable_threading:
+            self._hash_queryset_threaded(
+                manager=manager,
+                queryset=queryset,
+                plain_field_name=plain_field_name,
+                hash_field_name=hash_field_name,
+                count=count,
+                chunk_size=chunk_size,
+                max_workers=max_workers,
+            )
+        else:
+            self._hash_queryset(
+                manager=manager,
+                queryset=queryset,
+                plain_field_name=plain_field_name,
+                hash_field_name=hash_field_name,
+                count=count,
+                chunk_size=chunk_size,
+            )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"  Successfully hashed {count} instances for {field_name}"
+            )
+        )
+
+    def _iter_model_batches(self, models: QuerySet[Model], chunk_size: int):
+        batch: list[Model] = []
+        for model in models.iterator(chunk_size):
+            batch.append(model)
+            if len(batch) >= chunk_size:
+                yield batch
+                batch = []
+
+        if batch:
+            yield batch
+
+    def _hash_batch(
+        self,
+        manager,
+        batch: list[Model],
+        plain_field_name: str,
+        hash_field_name: str,
+        chunk_size: int,
+    ) -> int:
+        # Ensure this thread has a valid Django DB connection state.
+        close_old_connections()
+
+        for instance in batch:
+            value = getattr(instance, plain_field_name)
+            Sha256Field.set(instance, value, hash_field_name)
+
+        manager.bulk_update(
+            batch,
+            fields=[hash_field_name],
+            batch_size=chunk_size,
+        )
+        close_old_connections()
+        return len(batch)
+
+    def _hash_queryset(
+        self,
+        manager,
+        queryset,
+        plain_field_name: str,
+        hash_field_name: str,
+        count: int,
+        chunk_size: int,
+    ):
         instances: list[Model] = []
 
-        # Helper function to bulk update instances in chunks.
         def bulk_update(i: int):
             nonlocal instances
             if not instances:
                 return
             manager.bulk_update(
-                instances, fields=[hash_field_name], batch_size=chunk_size
+                instances,
+                fields=[hash_field_name],
+                batch_size=chunk_size,
             )
             instances = []
             self.stdout.write(f"    Progress: {i}/{count}")
 
-        # Iterate over the queryset in chunks and save each instance.
         i = 0
         for i, instance in enumerate(
             queryset.only(plain_field_name, hash_field_name).iterator(
@@ -178,26 +298,65 @@ class Command(BaseCommand):
             ),
             start=1,
         ):
-            # Get the plain value.
             value = getattr(instance, plain_field_name)
-
-            # Set the hash value using the Sha256Field's set method, which will
-            # normalize and hash the value before setting it on the instance.
             Sha256Field.set(instance, value, hash_field_name)
-
-            # Append the instance to the list of instances to be bulk updated.
             instances.append(instance)
 
-            # Print progress every chunk_size instances.
             if len(instances) == chunk_size:
                 bulk_update(i)
 
-        # Bulk update any remaining instances.
         if len(instances) > 0:
             bulk_update(count)
 
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"  Successfully hashed {count} instances for {field_name}"
-            )
-        )
+    def _hash_queryset_threaded(
+        self,
+        manager,
+        queryset,
+        plain_field_name: str,
+        hash_field_name: str,
+        count: int,
+        chunk_size: int,
+        max_workers: int,
+    ):
+        progress_lock = Lock()
+        processed_count = 0
+        submitted_batches = 0
+        max_pending_futures = max_workers * 2
+
+        def complete_one(future: Future[int]):
+            nonlocal processed_count
+            processed_batch_size = future.result()
+            with progress_lock:
+                processed_count += processed_batch_size
+                self.stdout.write(f"    Progress: {processed_count}/{count}")
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            pending_futures: set[Future[int]] = set()
+
+            models = queryset.only(plain_field_name, hash_field_name)
+            for batch in self._iter_model_batches(models, chunk_size):
+                pending_futures.add(
+                    executor.submit(
+                        self._hash_batch,
+                        manager,
+                        batch,
+                        plain_field_name,
+                        hash_field_name,
+                        chunk_size,
+                    )
+                )
+                submitted_batches += 1
+
+                if len(pending_futures) >= max_pending_futures:
+                    done, pending_futures = wait(
+                        pending_futures,
+                        return_when=FIRST_COMPLETED,
+                    )
+                    for future in done:
+                        complete_one(future)
+
+            if submitted_batches == 0:
+                return
+
+            for future in pending_futures:
+                complete_one(future)
