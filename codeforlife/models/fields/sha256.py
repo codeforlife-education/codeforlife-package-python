@@ -118,7 +118,7 @@ class LookupMixin(lookups.Lookup):
 
 
 # pylint: disable-next=abstract-method,too-many-ancestors
-class Sha256ExactLookup(lookups.Exact, LookupMixin):
+class Sha256ExactLookup(LookupMixin, lookups.Exact):
     """
     A lookup that hashes a plaintext right-hand side value before comparing.
 
@@ -138,7 +138,7 @@ class Sha256ExactLookup(lookups.Exact, LookupMixin):
 
 
 # pylint: disable-next=abstract-method,too-many-ancestors
-class Sha256InLookup(lookups.In, LookupMixin):
+class Sha256InLookup(LookupMixin, lookups.In):
     """
     A lookup that hashes plaintext right-hand side values before comparing.
 

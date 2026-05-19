@@ -1,6 +1,7 @@
 import typing as t
 
 from django.apps.registry import Apps
+from django.core.exceptions import FieldDoesNotExist
 from django.db import migrations
 from django.db.models import CharField, Model, Q
 
@@ -13,62 +14,106 @@ def set_field(model_name: str, field_name: str, qs_filter: Q | None = None):
         model_class: t.Type[Model] = apps.get_model(
             app_label="user", model_name=model_name
         )
+        manager = model_class.objects  # type: ignore[attr-defined]
 
-        # Helper function to create a Q object that checks if a field is null or
-        # empty.
-        def null_or_empty(field_name: str, empty: t.Any):
-            return Q(**{f"{field_name}__isnull": True}) | Q(
-                **{f"{field_name}": empty}
-            )
+        # Generate the plain field name and the Q object to filter instances
+        # where the plain field is null or empty.
+        plain_field_name = f"_{field_name}_plain"
+        plain_field_is_null_or_empty = Q(
+            **{f"{plain_field_name}__isnull": True}
+        ) | Q(**{f"{plain_field_name}": ""})
 
-        # Define the names and default values for the plain, encrypted, and hash
-        # fields.
-        plain_field = f"_{field_name}_plain", ""
-        enc_field = f"_{field_name}_enc", b""
-        hash_field = f"_{field_name}_hash", ""
+        # Generate the encrypted and hash field names and check if they exist.
+        enc_field_name = f"_{field_name}_enc"
+        try:
+            model_class._meta.get_field(enc_field_name)
+            enc_field_exists = True
+        except FieldDoesNotExist:
+            enc_field_exists = False
+        hash_field_name = f"_{field_name}_hash"
+        try:
+            model_class._meta.get_field(hash_field_name)
+            hash_field_exists = True
+        except FieldDoesNotExist:
+            hash_field_exists = False
 
-        # Check if the encrypted and hash fields exist.
-        has_enc_field = enc_field[0] in model_class._meta.fields_map
-        has_hash_field = hash_field[0] in model_class._meta.fields_map
-
-        # Build the queryset to filter instances where the plain field is not
-        # null or empty, and either the encrypted field or hash field is null or
-        # empty (if they exist).
-        queryset = model_class.objects.filter(  # type: ignore[attr-defined]
-            ~null_or_empty(*plain_field)
-            & (
-                null_or_empty(*enc_field) | null_or_empty(*hash_field)
-                if has_enc_field and has_hash_field
-                else (
-                    null_or_empty(*enc_field)
-                    if has_enc_field
-                    else null_or_empty(*hash_field)
-                )
-            )
+        # Update instances where the plain field is null or empty, setting the
+        # encrypted and hash fields to empty values (if they exist).
+        update_kwargs: dict[str, t.Any] = {}
+        if enc_field_exists:
+            update_kwargs[enc_field_name] = b""
+        if hash_field_exists:
+            update_kwargs[hash_field_name] = ""
+        update_count = manager.filter(plain_field_is_null_or_empty).update(
+            **update_kwargs
+        )
+        print(
+            f"Updated {update_count} instances of {model_name} for field "
+            f"{field_name} where {plain_field_name} is null or empty."
         )
 
-        # Additional filter if provided.
+        # If the hash field does not exist, we don't need to do anything else.
+        if not hash_field_exists:
+            return
+
+        # Build a queryset of instances where the plain field is not null or
+        # empty, and apply any additional filtering provided by qs_filter.
+        queryset = manager.filter(~plain_field_is_null_or_empty)
         if qs_filter is not None:
             queryset = queryset.filter(qs_filter)
+        count = queryset.count()
+        if count == 0:
+            print(
+                f"No instances of {model_name} found for field {field_name} "
+                f"where {plain_field_name} is not null or empty."
+            )
+            return
+        print(
+            f"Hashing {count} instances of {model_name} for field "
+            f"{field_name}..."
+        )
 
-        # Select fields.
-        fields = [plain_field[0]]
-        if has_enc_field:
-            fields.append(enc_field[0])
-        if has_hash_field:
-            fields.append(hash_field[0])
-        queryset = queryset.only(*fields)
+        # Set the chunk size for bulk updates and initialize an empty list to
+        # hold instances to be updated.
+        chunk_size = 1000
+        instances: list[Model] = []
+
+        # Helper function to bulk update instances in chunks.
+        def bulk_update(i: int):
+            nonlocal instances
+            if not instances:
+                return
+            manager.bulk_update(
+                instances, fields=[hash_field_name], batch_size=chunk_size
+            )
+            instances = []
+            print(f"({i}/{count})")
 
         # Iterate over the queryset in chunks and save each instance.
-        for instance in queryset.iterator(chunk_size=1000):
+        i = 0
+        for i, instance in enumerate(
+            queryset.only(plain_field_name, hash_field_name).iterator(
+                chunk_size
+            ),
+            start=1,
+        ):
             # Get the plain value.
-            value = getattr(instance, plain_field[0])
+            value = getattr(instance, plain_field_name)
 
-            # Set the plain, encrypted and hash values.
-            setattr(instance, field_name, value)
+            # Set the hash value using the Sha256Field's set method, which will
+            # normalize and hash the value before setting it on the instance.
+            Sha256Field.set(instance, value, hash_field_name)
 
-            # Save the instance, updating only the relevant fields.
-            instance.save(update_fields=fields)
+            # Append the instance to the list of instances to be bulk updated.
+            instances.append(instance)
+
+            # Print progress every chunk_size instances.
+            if len(instances) == chunk_size:
+                bulk_update(i)
+
+        # Bulk update any remaining instances.
+        if len(instances) > 0:
+            bulk_update(count)
 
     return migrations.RunPython(forwards_func)
 
@@ -119,7 +164,7 @@ user_migrations = [
         field=EncryptedTextField(
             associated_data="email",
             db_column="email_enc",
-            default="",
+            default=b"",
             verbose_name="email address",
         ),
         preserve_default=False,
@@ -144,7 +189,7 @@ user_migrations = [
         field=EncryptedTextField(
             associated_data="first_name",
             db_column="first_name_enc",
-            default="",
+            default=b"",
             verbose_name="first name",
         ),
         preserve_default=False,
@@ -169,7 +214,7 @@ user_migrations = [
         field=EncryptedTextField(
             associated_data="last_name",
             db_column="last_name_enc",
-            default="",
+            default=b"",
             verbose_name="last name",
         ),
         preserve_default=False,
@@ -182,7 +227,7 @@ user_migrations = [
         field=EncryptedTextField(
             associated_data="username",
             db_column="username_enc",
-            default="",
+            default=b"",
             verbose_name="username",
         ),
         preserve_default=False,
@@ -211,7 +256,7 @@ class_migrations = [
         field=EncryptedTextField(
             associated_data="access_code",
             db_column="access_code_enc",
-            default="",
+            default=b"",
             verbose_name="access code",
         ),
         preserve_default=False,
@@ -242,7 +287,7 @@ class_migrations = [
         field=EncryptedTextField(
             associated_data="name",
             db_column="name_enc",
-            default="",
+            default=b"",
             verbose_name="name",
         ),
         preserve_default=False,
@@ -270,7 +315,7 @@ school_teacher_invitation_migrations = [
         field=EncryptedTextField(
             associated_data="invited_teacher_email",
             db_column="invited_teacher_email_enc",
-            default="",
+            default=b"",
             verbose_name="invited teacher email",
         ),
         preserve_default=False,
@@ -285,7 +330,7 @@ school_teacher_invitation_migrations = [
         field=EncryptedTextField(
             associated_data="invited_teacher_first_name",
             db_column="invited_teacher_first_name_enc",
-            default="",
+            default=b"",
             verbose_name="invited teacher first name",
         ),
         preserve_default=False,
@@ -298,7 +343,7 @@ school_teacher_invitation_migrations = [
         field=EncryptedTextField(
             associated_data="invited_teacher_last_name",
             db_column="invited_teacher_last_name_enc",
-            default="",
+            default=b"",
             verbose_name="invited teacher last name",
         ),
         preserve_default=False,
@@ -311,7 +356,7 @@ school_teacher_invitation_migrations = [
         field=EncryptedTextField(
             associated_data="token",
             db_column="token_enc",
-            default="",
+            default=b"",
             verbose_name="token",
         ),
         preserve_default=False,
@@ -340,7 +385,7 @@ school_migrations = [
         field=EncryptedTextField(
             associated_data="name",
             db_column="name_enc",
-            default="",
+            default=b"",
             verbose_name="name",
         ),
         preserve_default=False,
