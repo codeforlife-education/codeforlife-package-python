@@ -1,3 +1,8 @@
+"""
+© Ocado Group
+Created on 20/05/2026 at 15:44:33(+01:00).
+"""
+
 import typing as t
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
@@ -19,6 +24,11 @@ ModelQuerySet: t.TypeAlias = QuerySet[Model]
 
 @dataclass
 class HashUniquenessState:
+    """
+    State to track used hashes and suffixes for ensuring uniqueness when
+    normalizing hash fields.
+    """
+
     used_hashes: set[str]
     suffix_counters: dict[str, int]
 
@@ -51,6 +61,11 @@ class Command(BaseCommand):
             type=int,
             default=4,
             help="Maximum thread workers when --enable-threading is used.",
+        )
+        parser.add_argument(
+            "--disable-styles",
+            action="store_true",
+            help="Disable styled output.",
         )
 
     # Define all models and their fields to process
@@ -91,6 +106,7 @@ class Command(BaseCommand):
         chunk_size: int = options["chunk_size"]
         enable_threading: bool = options["enable_threading"]
         max_workers: int = options["max_workers"]
+        disable_styles: bool = options["disable_styles"]
 
         if chunk_size < 1:
             raise ValueError("--chunk-size must be at least 1.")
@@ -101,7 +117,11 @@ class Command(BaseCommand):
         if max_workers > 8:
             raise ValueError("--max-workers must be <= 8.")
 
-        pprint = PrettyPrinter(write=self.stderr.write, name=self.__module__)
+        pprint = PrettyPrinter(
+            write=self.stderr.write,
+            name=self.__module__,
+            disable_styles=disable_styles,
+        )
 
         with pprint.process("Normalizing encrypted fields") as root_pprint:
             for model_name, config in self.MODELS_TO_PROCESS.items():
@@ -227,7 +247,9 @@ class Command(BaseCommand):
         if model_class is None:
             return
 
-        model_manager = t.cast(ModelManager, model_class.objects)  # type: ignore[attr-defined]
+        model_manager = t.cast(
+            ModelManager, model_class.objects  # type: ignore[attr-defined]
+        )
 
         plain_field_name, plain_field_is_null_or_empty = (
             self._build_plain_field_filter(field_name)
@@ -239,7 +261,8 @@ class Command(BaseCommand):
         # If neither encrypted nor hash field exists, skip this field.
         if enc_field is None and hash_field is None:
             log(
-                f"Skipping {model_name}.{field_name}: no encrypted or hash field found."
+                f"Skipping {model_name}.{field_name}: no encrypted or hash"
+                " field found."
             )
             return
 
@@ -307,21 +330,6 @@ class Command(BaseCommand):
 
         log(f"Completed hashing for {field_name}: {count} records.")
 
-    def _iterate_queryset_batches(
-        self,
-        model_queryset: ModelQuerySet,
-        chunk_size: int,
-    ):
-        batch: list[Model] = []
-        for model in model_queryset.iterator(chunk_size):
-            batch.append(model)
-            if len(batch) >= chunk_size:
-                yield batch
-                batch = []
-
-        if batch:
-            yield batch
-
     def _bulk_update_batch(
         self,
         model_manager: ModelManager,
@@ -371,7 +379,6 @@ class Command(BaseCommand):
         normalized_base = hash_field.normalize(value)
 
         if state is None:
-            setattr(instance, plain_field_name, normalized_base)
             setattr(
                 instance, hash_field_name, Sha256Field.hash(normalized_base)
             )
@@ -393,7 +400,6 @@ class Command(BaseCommand):
 
         state.suffix_counters[normalized_base] = suffix
         state.used_hashes.add(candidate_hash)
-        setattr(instance, plain_field_name, candidate_plain)
         setattr(instance, hash_field_name, candidate_hash)
 
     def _normalize_and_hash_queryset_sequential(
@@ -409,7 +415,7 @@ class Command(BaseCommand):
     ) -> None:
         instances: list[Model] = []
         hash_field_name = hash_field.name
-        update_fields = [plain_field_name, hash_field_name]
+        update_fields = [hash_field_name]
 
         def bulk_update(i: int):
             nonlocal instances
@@ -461,7 +467,7 @@ class Command(BaseCommand):
         submitted_batches = 0
         max_pending_futures = max_workers * 2
         hash_field_name = hash_field.name
-        update_fields = [plain_field_name, hash_field_name]
+        update_fields = [hash_field_name]
 
         def complete_one(future: Future[int]):
             nonlocal processed_count
