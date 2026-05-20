@@ -21,6 +21,8 @@ ModelClass: t.TypeAlias = t.Type[Model]
 ModelManager: t.TypeAlias = Manager[Model]
 ModelQuerySet: t.TypeAlias = QuerySet[Model]
 
+# pylint: disable=duplicate-code,too-many-locals,import-outside-toplevel,too-many-positional-arguments,too-many-arguments
+
 
 @dataclass
 class HashUniquenessState:

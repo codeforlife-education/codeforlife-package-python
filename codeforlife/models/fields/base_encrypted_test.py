@@ -167,7 +167,10 @@ class TestBaseEncryptedField(TestCase):
     def test_init__unique_not_supported(self):
         """Cannot create BaseEncryptedField with unique=True."""
         with self.assert_raises_validation_error(code="unique_not_supported"):
-            BaseEncryptedField(associated_data="test", unique=True)
+            BaseEncryptedField(
+                associated_data="test",
+                unique=True,  # type: ignore[arg-type]
+            )
 
     def test_init(self):
         """BaseEncryptedField is constructed correctly."""
