@@ -6,9 +6,15 @@ from threading import Lock
 from django.core.exceptions import FieldDoesNotExist
 from django.core.management.base import BaseCommand
 from django.db import close_old_connections
-from django.db.models import Model, Q, QuerySet
+from django.db.models import Manager, Model, Q, QuerySet
 
-from ....models.fields import Sha256Field
+from ....models.fields import BaseEncryptedField, Sha256Field
+from ....pprint import PrettyPrinter
+
+LogFn: t.TypeAlias = t.Callable[[str], None]
+ModelClass: t.TypeAlias = t.Type[Model]
+ModelManager: t.TypeAlias = Manager[Model]
+ModelQuerySet: t.TypeAlias = QuerySet[Model]
 
 
 @dataclass
@@ -19,11 +25,8 @@ class HashUniquenessState:
 
 class Command(BaseCommand):
     """
-    Django management command to set encrypted and hash field values for all models.
-
-    This command replicates the logic from migration 0005_client_side_encryption_part_3
-    and automatically processes all models in the codeforlife.user app that have
-    encrypted fields.
+    Django management command to set encrypted and hash field values for all
+    models.
     """
 
     help = "Normalize encrypted and hash fields for all user models"
@@ -98,36 +101,116 @@ class Command(BaseCommand):
         if max_workers > 8:
             raise ValueError("--max-workers must be <= 8.")
 
+        pprint = PrettyPrinter(write=self.stderr.write, name=self.__module__)
+
+        with pprint.process("Normalizing encrypted fields") as root_pprint:
+            for model_name, config in self.MODELS_TO_PROCESS.items():
+                fields = t.cast(list[str], config["fields"])
+                qs_filter = t.cast(Q | None, config.get("filter"))
+
+                with root_pprint.process(
+                    f"Model: {root_pprint.notice.apply(model_name)}"
+                ) as model_pprint:
+                    for field_name in fields:
+                        with model_pprint.process(
+                            "Field: " + model_pprint.notice.apply(field_name)
+                        ) as field_pprint:
+                            self._normalize_field_for_model(
+                                model_name=model_name,
+                                field_name=field_name,
+                                qs_filter=qs_filter,
+                                chunk_size=chunk_size,
+                                enable_threading=enable_threading,
+                                max_workers=max_workers,
+                                log=field_pprint,
+                            )
+
         self.stdout.write(
-            self.style.SUCCESS("Starting to normalize encrypted fields...")
-        )
-        self.stdout.write("")
-
-        for model_name, config in self.MODELS_TO_PROCESS.items():
-            fields = t.cast(list[str], config["fields"])
-            qs_filter = t.cast(Q | None, config.get("filter"))
-
-            for field_name in fields:
-                self.stdout.write(
-                    self.style.HTTP_INFO(
-                        f"Processing {model_name}.{field_name}..."
-                    )
-                )
-                self.set_field(
-                    model_name=model_name,
-                    field_name=field_name,
-                    qs_filter=qs_filter,
-                    chunk_size=chunk_size,
-                    enable_threading=enable_threading,
-                    max_workers=max_workers,
-                )
-                self.stdout.write("")
-
-        self.stdout.write(
-            self.style.SUCCESS("Successfully normalized all encrypted fields!")
+            self.style.SUCCESS("Successfully normalized all configured fields!")
         )
 
-    def set_field(
+    def _get_model_class(self, model_name: str) -> ModelClass | None:
+        from codeforlife.user import models
+
+        try:
+            return t.cast(ModelClass, getattr(models, model_name))
+        except AttributeError:
+            self.stderr.write(
+                self.style.ERROR(
+                    f"Model '{model_name}' not found in codeforlife.user.models"
+                )
+            )
+            return None
+
+    def _build_plain_field_filter(self, field_name: str) -> tuple[str, Q]:
+        plain_field_name = f"_{field_name}_plain"
+        plain_field_is_null_or_empty = Q(
+            **{f"{plain_field_name}__isnull": True}
+        ) | Q(**{f"{plain_field_name}": ""})
+        return plain_field_name, plain_field_is_null_or_empty
+
+    def _discover_target_fields(
+        self,
+        model_class: ModelClass,
+        field_name: str,
+    ) -> tuple[BaseEncryptedField[t.Any] | None, Sha256Field | None]:
+        # Discover related encrypted/hash fields for this plaintext field.
+        enc_field_name = f"_{field_name}_enc"
+        try:
+            enc_field = model_class._meta.get_field(enc_field_name)
+            assert isinstance(enc_field, BaseEncryptedField), (
+                f"Expected '{model_class.__name__}.{enc_field_name}' to be a "
+                f"BaseEncryptedField, got {type(enc_field).__name__}."
+            )
+            enc_field = t.cast(BaseEncryptedField[t.Any], enc_field)
+        except FieldDoesNotExist:
+            enc_field = None
+
+        hash_field_name = f"_{field_name}_hash"
+        try:
+            hash_field = model_class._meta.get_field(hash_field_name)
+            assert isinstance(hash_field, Sha256Field), (
+                f"Expected '{model_class.__name__}.{hash_field_name}' to be "
+                f"a Sha256Field, got {type(hash_field).__name__}."
+            )
+            hash_field = t.cast(Sha256Field, hash_field)
+        except FieldDoesNotExist:
+            hash_field = None
+
+        return (enc_field, hash_field)
+
+    def _reset_missing_plain_values(
+        self,
+        model_manager: ModelManager,
+        plain_field_is_null_or_empty: Q,
+        enc_field: BaseEncryptedField[t.Any] | None,
+        hash_field: Sha256Field | None,
+        log: LogFn,
+        plain_field_name: str,
+    ) -> None:
+        update_kwargs: dict[str, t.Any] = {}
+        if enc_field is not None:
+            update_kwargs[enc_field.name] = b""
+        if hash_field is not None:
+            update_kwargs[hash_field.name] = ""
+
+        update_count = model_manager.filter(
+            plain_field_is_null_or_empty
+        ).update(**update_kwargs)
+        log(f"Updated {update_count} records with empty {plain_field_name}.")
+
+    def _build_hash_queryset(
+        self,
+        model_manager: ModelManager,
+        plain_field_is_null_or_empty: Q,
+        qs_filter: Q | None,
+    ) -> ModelQuerySet:
+        queryset = model_manager.filter(~plain_field_is_null_or_empty)
+        if qs_filter is not None:
+            queryset = queryset.filter(qs_filter)
+        return t.cast(ModelQuerySet, queryset.order_by("pk"))
+
+    def _normalize_field_for_model(
         self,
         model_name: str,
         field_name: str,
@@ -135,89 +218,57 @@ class Command(BaseCommand):
         chunk_size: int = 1000,
         enable_threading: bool = False,
         max_workers: int = 4,
-    ):
+        log: LogFn | None = None,
+    ) -> None:
         """Set encrypted and hash field values for a model field."""
-        from codeforlife.user import models
+        log = log or self.stdout.write
 
-        # Get the model class from the apps registry.
-        try:
-            model_class: t.Type[Model] = getattr(models, model_name)
-        except AttributeError:
-            self.stderr.write(
-                self.style.ERROR(
-                    f"Model '{model_name}' not found in codeforlife.user.models"
-                )
-            )
+        model_class = self._get_model_class(model_name)
+        if model_class is None:
             return
 
-        manager = model_class.objects  # type: ignore[attr-defined]
+        model_manager = t.cast(ModelManager, model_class.objects)  # type: ignore[attr-defined]
 
-        # Generate the plain field name and the Q object to filter instances
-        # where the plain field is null or empty.
-        plain_field_name = f"_{field_name}_plain"
-        plain_field_is_null_or_empty = Q(
-            **{f"{plain_field_name}__isnull": True}
-        ) | Q(**{f"{plain_field_name}": ""})
-
-        # Generate the encrypted and hash field names and check if they exist.
-        enc_field_name = f"_{field_name}_enc"
-        try:
-            model_class._meta.get_field(enc_field_name)
-            enc_field_exists = True
-        except FieldDoesNotExist:
-            enc_field_exists = False
-
-        hash_field_name = f"_{field_name}_hash"
-        try:
-            hash_field = t.cast(
-                Sha256Field, model_class._meta.get_field(hash_field_name)
-            )
-            hash_field_exists = True
-        except FieldDoesNotExist:
-            hash_field = None
-            hash_field_exists = False
+        plain_field_name, plain_field_is_null_or_empty = (
+            self._build_plain_field_filter(field_name)
+        )
+        enc_field, hash_field = self._discover_target_fields(
+            model_class, field_name
+        )
 
         # If neither encrypted nor hash field exists, skip this field.
-        if not enc_field_exists and not hash_field_exists:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"Skipping {model_name}.{field_name}: no encrypted or hash field found"
-                )
+        if enc_field is None and hash_field is None:
+            log(
+                f"Skipping {model_name}.{field_name}: no encrypted or hash field found."
             )
             return
 
-        # Update instances where the plain field is null or empty, setting the
-        # encrypted and hash fields to empty values (if they exist).
-        update_kwargs: dict[str, t.Any] = {}
-        if enc_field_exists:
-            update_kwargs[enc_field_name] = b""
-        if hash_field_exists:
-            update_kwargs[hash_field_name] = ""
-
-        update_count = manager.filter(plain_field_is_null_or_empty).update(
-            **update_kwargs
-        )
-        self.stdout.write(
-            f"  Updated {update_count} instances with null/empty {plain_field_name}"
+        self._reset_missing_plain_values(
+            model_manager=model_manager,
+            plain_field_is_null_or_empty=plain_field_is_null_or_empty,
+            enc_field=enc_field,
+            hash_field=hash_field,
+            log=log,
+            plain_field_name=plain_field_name,
         )
 
         # If the hash field does not exist, we don't need to do anything else.
-        if not hash_field_exists:
+        if hash_field is None:
+            log("No hash field found, skipping hash normalization.")
             return
 
-        # Build a queryset of instances where the plain field is not null or
-        # empty, and apply any additional filtering provided by qs_filter.
-        queryset = manager.filter(~plain_field_is_null_or_empty)
-        if qs_filter is not None:
-            queryset = queryset.filter(qs_filter)
-        queryset = queryset.order_by("pk")
+        queryset = self._build_hash_queryset(
+            model_manager=model_manager,
+            plain_field_is_null_or_empty=plain_field_is_null_or_empty,
+            qs_filter=qs_filter,
+        )
 
         count = queryset.count()
         if count == 0:
-            self.stdout.write(f"  No instances to hash for {plain_field_name}")
+            log(f"No records to hash for {plain_field_name}.")
             return
 
-        self.stdout.write(f"  Hashing {count} instances...")
+        log(f"Hashing {count} records...")
         unique_hash_field = bool(t.cast(Sha256Field, hash_field).unique)
 
         state: HashUniquenessState | None = None
@@ -225,44 +276,44 @@ class Command(BaseCommand):
             # Ensure we avoid collisions with hashes that already exist in rows
             # outside the queryset currently being normalized.
             state = self._build_hash_uniqueness_state(
-                manager=manager,
-                queryset=queryset,
-                hash_field_name=hash_field_name,
+                model_manager=model_manager,
+                model_queryset=queryset,
+                hash_field=t.cast(Sha256Field, hash_field),
             )
 
         if enable_threading:
-            self._hash_queryset_threaded(
-                manager=manager,
-                queryset=queryset,
+            self._normalize_and_hash_queryset_threaded(
+                model_manager=model_manager,
+                model_queryset=queryset,
                 plain_field_name=plain_field_name,
-                hash_field_name=hash_field_name,
                 hash_field=t.cast(Sha256Field, hash_field),
                 count=count,
                 chunk_size=chunk_size,
                 max_workers=max_workers,
                 state=state,
+                log=log,
             )
         else:
-            self._hash_queryset(
-                manager=manager,
-                queryset=queryset,
+            self._normalize_and_hash_queryset_sequential(
+                model_manager=model_manager,
+                model_queryset=queryset,
                 plain_field_name=plain_field_name,
-                hash_field_name=hash_field_name,
                 hash_field=t.cast(Sha256Field, hash_field),
                 count=count,
                 chunk_size=chunk_size,
                 state=state,
+                log=log,
             )
 
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"  Successfully hashed {count} instances for {field_name}"
-            )
-        )
+        log(f"Completed hashing for {field_name}: {count} records.")
 
-    def _iter_model_batches(self, models: QuerySet[Model], chunk_size: int):
+    def _iterate_queryset_batches(
+        self,
+        model_queryset: ModelQuerySet,
+        chunk_size: int,
+    ):
         batch: list[Model] = []
-        for model in models.iterator(chunk_size):
+        for model in model_queryset.iterator(chunk_size):
             batch.append(model)
             if len(batch) >= chunk_size:
                 yield batch
@@ -271,9 +322,9 @@ class Command(BaseCommand):
         if batch:
             yield batch
 
-    def _hash_batch(
+    def _bulk_update_batch(
         self,
-        manager,
+        model_manager: ModelManager,
         batch: list[Model],
         update_fields: list[str],
         chunk_size: int,
@@ -281,7 +332,7 @@ class Command(BaseCommand):
         # Ensure this thread has a valid Django DB connection state.
         close_old_connections()
 
-        manager.bulk_update(
+        model_manager.bulk_update(
             batch,
             fields=update_fields,
             batch_size=chunk_size,
@@ -291,13 +342,14 @@ class Command(BaseCommand):
 
     def _build_hash_uniqueness_state(
         self,
-        manager,
-        queryset,
-        hash_field_name: str,
+        model_manager: ModelManager,
+        model_queryset: ModelQuerySet,
+        hash_field: Sha256Field,
     ) -> HashUniquenessState:
-        queryset_ids = queryset.values("pk")
+        hash_field_name = hash_field.name
+        queryset_ids = model_queryset.values("pk")
         existing_hashes = set(
-            manager.exclude(pk__in=queryset_ids)
+            model_manager.exclude(pk__in=queryset_ids)
             .exclude(**{f"{hash_field_name}__isnull": True})
             .exclude(**{hash_field_name: ""})
             .values_list(hash_field_name, flat=True)
@@ -311,10 +363,10 @@ class Command(BaseCommand):
         self,
         instance: Model,
         plain_field_name: str,
-        hash_field_name: str,
         hash_field: Sha256Field,
         state: HashUniquenessState | None,
-    ):
+    ) -> None:
+        hash_field_name = hash_field.name
         value = t.cast(str, getattr(instance, plain_field_name))
         normalized_base = hash_field.normalize(value)
 
@@ -344,35 +396,36 @@ class Command(BaseCommand):
         setattr(instance, plain_field_name, candidate_plain)
         setattr(instance, hash_field_name, candidate_hash)
 
-    def _hash_queryset(
+    def _normalize_and_hash_queryset_sequential(
         self,
-        manager,
-        queryset,
+        model_manager: ModelManager,
+        model_queryset: ModelQuerySet,
         plain_field_name: str,
-        hash_field_name: str,
         hash_field: Sha256Field,
         count: int,
         chunk_size: int,
         state: HashUniquenessState | None,
-    ):
+        log: LogFn,
+    ) -> None:
         instances: list[Model] = []
+        hash_field_name = hash_field.name
         update_fields = [plain_field_name, hash_field_name]
 
         def bulk_update(i: int):
             nonlocal instances
             if not instances:
                 return
-            manager.bulk_update(
+            model_manager.bulk_update(
                 instances,
                 fields=update_fields,
                 batch_size=chunk_size,
             )
             instances = []
-            self.stdout.write(f"    Progress: {i}/{count}")
+            log(f"Progress: {i}/{count}")
 
         i = 0
         for i, instance in enumerate(
-            queryset.only(plain_field_name, hash_field_name).iterator(
+            model_queryset.only(plain_field_name, hash_field_name).iterator(
                 chunk_size
             ),
             start=1,
@@ -380,7 +433,6 @@ class Command(BaseCommand):
             self._assign_unique_plain_and_hash(
                 instance=instance,
                 plain_field_name=plain_field_name,
-                hash_field_name=hash_field_name,
                 hash_field=hash_field,
                 state=state,
             )
@@ -392,22 +444,23 @@ class Command(BaseCommand):
         if len(instances) > 0:
             bulk_update(count)
 
-    def _hash_queryset_threaded(
+    def _normalize_and_hash_queryset_threaded(
         self,
-        manager,
-        queryset,
+        model_manager: ModelManager,
+        model_queryset: ModelQuerySet,
         plain_field_name: str,
-        hash_field_name: str,
         hash_field: Sha256Field,
         count: int,
         chunk_size: int,
         max_workers: int,
         state: HashUniquenessState | None,
-    ):
+        log: LogFn,
+    ) -> None:
         progress_lock = Lock()
         processed_count = 0
         submitted_batches = 0
         max_pending_futures = max_workers * 2
+        hash_field_name = hash_field.name
         update_fields = [plain_field_name, hash_field_name]
 
         def complete_one(future: Future[int]):
@@ -415,18 +468,19 @@ class Command(BaseCommand):
             processed_batch_size = future.result()
             with progress_lock:
                 processed_count += processed_batch_size
-                self.stdout.write(f"    Progress: {processed_count}/{count}")
+                log(f"Progress: {processed_count}/{count}")
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             pending_futures: set[Future[int]] = set()
 
-            models = queryset.only(plain_field_name, hash_field_name)
+            ordered_queryset = model_queryset.only(
+                plain_field_name, hash_field_name
+            )
             batch: list[Model] = []
-            for instance in models.iterator(chunk_size):
+            for instance in ordered_queryset.iterator(chunk_size):
                 self._assign_unique_plain_and_hash(
                     instance=instance,
                     plain_field_name=plain_field_name,
-                    hash_field_name=hash_field_name,
                     hash_field=hash_field,
                     state=state,
                 )
@@ -436,8 +490,8 @@ class Command(BaseCommand):
 
                 pending_futures.add(
                     executor.submit(
-                        self._hash_batch,
-                        manager,
+                        self._bulk_update_batch,
+                        model_manager,
                         batch,
                         update_fields,
                         chunk_size,
@@ -457,8 +511,8 @@ class Command(BaseCommand):
             if batch:
                 pending_futures.add(
                     executor.submit(
-                        self._hash_batch,
-                        manager,
+                        self._bulk_update_batch,
+                        model_manager,
                         batch,
                         update_fields,
                         chunk_size,

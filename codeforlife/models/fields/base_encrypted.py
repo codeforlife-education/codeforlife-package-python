@@ -65,8 +65,14 @@ class BaseEncryptedField(
         self,
         associated_data: str,
         normalize: Normalize[T] = lambda x: x,
+        unique: t.Literal[False] = False,
         **kwargs,
     ):
+        if unique:
+            raise ValidationError(
+                f"{self.__class__.__name__} does not support unique=True.",
+                code="unique_not_supported",
+            )
         if not associated_data:
             raise ValidationError(
                 "Associated data cannot be empty.",
@@ -74,7 +80,7 @@ class BaseEncryptedField(
             )
         self.associated_data = associated_data
 
-        super().__init__(normalize=normalize, **kwargs)
+        super().__init__(normalize=normalize, unique=unique, **kwargs)
 
     def deconstruct(self):
         name, path, args, kwargs = t.cast(
