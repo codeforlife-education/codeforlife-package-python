@@ -67,11 +67,15 @@ class Sha256Field(NormalizedField[Model, str], CharField):
         Returns:
             A hash of the value salted with the Django secret key.
         """
-        return hmac.new(
-            key=settings.SECRET_KEY.encode("utf-8"),
-            msg=value.encode("utf-8"),
-            digestmod=sha256,
-        ).hexdigest()
+        return (
+            ""
+            if value == ""
+            else hmac.new(
+                key=settings.SECRET_KEY.encode("utf-8"),
+                msg=value.encode("utf-8"),
+                digestmod=sha256,
+            ).hexdigest()
+        )
 
     @classmethod
     def set(cls, instance, value, field_name, **kwargs):

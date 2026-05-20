@@ -1,5 +1,6 @@
 import typing as t
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from dataclasses import dataclass
 from threading import Lock
 
 from django.core.exceptions import FieldDoesNotExist
@@ -8,6 +9,12 @@ from django.db import close_old_connections
 from django.db.models import Model, Q, QuerySet
 
 from ....models.fields import Sha256Field
+
+
+@dataclass
+class HashUniquenessState:
+    used_hashes: set[str]
+    suffix_counters: dict[str, int]
 
 
 class Command(BaseCommand):
@@ -162,9 +169,12 @@ class Command(BaseCommand):
 
         hash_field_name = f"_{field_name}_hash"
         try:
-            model_class._meta.get_field(hash_field_name)
+            hash_field = t.cast(
+                Sha256Field, model_class._meta.get_field(hash_field_name)
+            )
             hash_field_exists = True
         except FieldDoesNotExist:
+            hash_field = None
             hash_field_exists = False
 
         # If neither encrypted nor hash field exists, skip this field.
@@ -200,6 +210,7 @@ class Command(BaseCommand):
         queryset = manager.filter(~plain_field_is_null_or_empty)
         if qs_filter is not None:
             queryset = queryset.filter(qs_filter)
+        queryset = queryset.order_by("pk")
 
         count = queryset.count()
         if count == 0:
@@ -207,6 +218,17 @@ class Command(BaseCommand):
             return
 
         self.stdout.write(f"  Hashing {count} instances...")
+        unique_hash_field = bool(t.cast(Sha256Field, hash_field).unique)
+
+        state: HashUniquenessState | None = None
+        if unique_hash_field:
+            # Ensure we avoid collisions with hashes that already exist in rows
+            # outside the queryset currently being normalized.
+            state = self._build_hash_uniqueness_state(
+                manager=manager,
+                queryset=queryset,
+                hash_field_name=hash_field_name,
+            )
 
         if enable_threading:
             self._hash_queryset_threaded(
@@ -214,9 +236,11 @@ class Command(BaseCommand):
                 queryset=queryset,
                 plain_field_name=plain_field_name,
                 hash_field_name=hash_field_name,
+                hash_field=t.cast(Sha256Field, hash_field),
                 count=count,
                 chunk_size=chunk_size,
                 max_workers=max_workers,
+                state=state,
             )
         else:
             self._hash_queryset(
@@ -224,8 +248,10 @@ class Command(BaseCommand):
                 queryset=queryset,
                 plain_field_name=plain_field_name,
                 hash_field_name=hash_field_name,
+                hash_field=t.cast(Sha256Field, hash_field),
                 count=count,
                 chunk_size=chunk_size,
+                state=state,
             )
 
         self.stdout.write(
@@ -249,24 +275,74 @@ class Command(BaseCommand):
         self,
         manager,
         batch: list[Model],
-        plain_field_name: str,
-        hash_field_name: str,
+        update_fields: list[str],
         chunk_size: int,
     ) -> int:
         # Ensure this thread has a valid Django DB connection state.
         close_old_connections()
 
-        for instance in batch:
-            value = getattr(instance, plain_field_name)
-            Sha256Field.set(instance, value, hash_field_name)
-
         manager.bulk_update(
             batch,
-            fields=[hash_field_name],
+            fields=update_fields,
             batch_size=chunk_size,
         )
         close_old_connections()
         return len(batch)
+
+    def _build_hash_uniqueness_state(
+        self,
+        manager,
+        queryset,
+        hash_field_name: str,
+    ) -> HashUniquenessState:
+        queryset_ids = queryset.values("pk")
+        existing_hashes = set(
+            manager.exclude(pk__in=queryset_ids)
+            .exclude(**{f"{hash_field_name}__isnull": True})
+            .exclude(**{hash_field_name: ""})
+            .values_list(hash_field_name, flat=True)
+        )
+        return HashUniquenessState(
+            used_hashes=existing_hashes,
+            suffix_counters={},
+        )
+
+    def _assign_unique_plain_and_hash(
+        self,
+        instance: Model,
+        plain_field_name: str,
+        hash_field_name: str,
+        hash_field: Sha256Field,
+        state: HashUniquenessState | None,
+    ):
+        value = t.cast(str, getattr(instance, plain_field_name))
+        normalized_base = hash_field.normalize(value)
+
+        if state is None:
+            setattr(instance, plain_field_name, normalized_base)
+            setattr(
+                instance, hash_field_name, Sha256Field.hash(normalized_base)
+            )
+            return
+
+        suffix = state.suffix_counters.get(normalized_base, 0)
+        while True:
+            suffix += 1
+            candidate_plain = (
+                normalized_base
+                if suffix == 1
+                else f"{normalized_base} {suffix}"
+            )
+            candidate_hash = Sha256Field.hash(
+                hash_field.normalize(candidate_plain)
+            )
+            if candidate_hash not in state.used_hashes:
+                break
+
+        state.suffix_counters[normalized_base] = suffix
+        state.used_hashes.add(candidate_hash)
+        setattr(instance, plain_field_name, candidate_plain)
+        setattr(instance, hash_field_name, candidate_hash)
 
     def _hash_queryset(
         self,
@@ -274,10 +350,13 @@ class Command(BaseCommand):
         queryset,
         plain_field_name: str,
         hash_field_name: str,
+        hash_field: Sha256Field,
         count: int,
         chunk_size: int,
+        state: HashUniquenessState | None,
     ):
         instances: list[Model] = []
+        update_fields = [plain_field_name, hash_field_name]
 
         def bulk_update(i: int):
             nonlocal instances
@@ -285,7 +364,7 @@ class Command(BaseCommand):
                 return
             manager.bulk_update(
                 instances,
-                fields=[hash_field_name],
+                fields=update_fields,
                 batch_size=chunk_size,
             )
             instances = []
@@ -298,8 +377,13 @@ class Command(BaseCommand):
             ),
             start=1,
         ):
-            value = getattr(instance, plain_field_name)
-            Sha256Field.set(instance, value, hash_field_name)
+            self._assign_unique_plain_and_hash(
+                instance=instance,
+                plain_field_name=plain_field_name,
+                hash_field_name=hash_field_name,
+                hash_field=hash_field,
+                state=state,
+            )
             instances.append(instance)
 
             if len(instances) == chunk_size:
@@ -314,14 +398,17 @@ class Command(BaseCommand):
         queryset,
         plain_field_name: str,
         hash_field_name: str,
+        hash_field: Sha256Field,
         count: int,
         chunk_size: int,
         max_workers: int,
+        state: HashUniquenessState | None,
     ):
         progress_lock = Lock()
         processed_count = 0
         submitted_batches = 0
         max_pending_futures = max_workers * 2
+        update_fields = [plain_field_name, hash_field_name]
 
         def complete_one(future: Future[int]):
             nonlocal processed_count
@@ -334,17 +421,29 @@ class Command(BaseCommand):
             pending_futures: set[Future[int]] = set()
 
             models = queryset.only(plain_field_name, hash_field_name)
-            for batch in self._iter_model_batches(models, chunk_size):
+            batch: list[Model] = []
+            for instance in models.iterator(chunk_size):
+                self._assign_unique_plain_and_hash(
+                    instance=instance,
+                    plain_field_name=plain_field_name,
+                    hash_field_name=hash_field_name,
+                    hash_field=hash_field,
+                    state=state,
+                )
+                batch.append(instance)
+                if len(batch) < chunk_size:
+                    continue
+
                 pending_futures.add(
                     executor.submit(
                         self._hash_batch,
                         manager,
                         batch,
-                        plain_field_name,
-                        hash_field_name,
+                        update_fields,
                         chunk_size,
                     )
                 )
+                batch = []
                 submitted_batches += 1
 
                 if len(pending_futures) >= max_pending_futures:
@@ -354,6 +453,18 @@ class Command(BaseCommand):
                     )
                     for future in done:
                         complete_one(future)
+
+            if batch:
+                pending_futures.add(
+                    executor.submit(
+                        self._hash_batch,
+                        manager,
+                        batch,
+                        update_fields,
+                        chunk_size,
+                    )
+                )
+                submitted_batches += 1
 
             if submitted_batches == 0:
                 return
