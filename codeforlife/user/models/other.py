@@ -293,7 +293,6 @@ class SchoolTeacherInvitation(EncryptedModel):
 
     _token_hash = Sha256Field(
         verbose_name=_("token hash"),
-        unique=True,
         db_column="token_hash",
     )
     _token_plain: str
@@ -447,6 +446,15 @@ class SchoolTeacherInvitation(EncryptedModel):
     objects: SchoolTeacherInvitationModelManager = (
         SchoolTeacherInvitationModelManager()  # type: ignore[assignment]
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                condition=~models.Q(_token_hash=""),
+                fields=["_token_hash"],
+                name="unique_token_hash_non_empty",
+            ),
+        ]
 
     @property
     def is_expired(self):

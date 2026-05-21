@@ -84,10 +84,17 @@ user_migrations = [
             default="",
             editable=False,
             max_length=64,
-            unique=True,
             verbose_name="username hash",
         ),
         preserve_default=False,
+    ),
+    migrations.AddConstraint(
+        model_name="user",
+        constraint=UniqueConstraint(
+            condition=Q(("_username_hash", ""), _negated=True),
+            fields=("_username_hash",),
+            name="unique_username_hash_non_empty",
+        ),
     ),
 ]
 
@@ -213,10 +220,17 @@ school_teacher_invitation_migrations = [
             default="",
             editable=False,
             max_length=64,
-            unique=True,
             verbose_name="token hash",
         ),
         preserve_default=False,
+    ),
+    migrations.AddConstraint(
+        model_name="schoolteacherinvitation",
+        constraint=UniqueConstraint(
+            condition=Q(("_token_hash", ""), _negated=True),
+            fields=("_token_hash",),
+            name="unique_token_hash_non_empty",
+        ),
     ),
 ]
 

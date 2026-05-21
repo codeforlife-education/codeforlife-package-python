@@ -169,7 +169,6 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
     _username_hash = Sha256Field(
         verbose_name=_("username hash"),
         db_column="username_hash",
-        unique=True,
     )
     _username_plain = models.CharField(
         _("username"),
@@ -318,6 +317,13 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
     class Meta:
         verbose_name = _("user")
         verbose_name_plural = _("users")
+        constraints = [
+            models.UniqueConstraint(
+                condition=~models.Q(_username_hash=""),
+                fields=["_username_hash"],
+                name="unique_username_hash_non_empty",
+            ),
+        ]
 
     # TODO: remove in new schema
     password: str  # type: ignore[assignment]
