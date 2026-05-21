@@ -1,5 +1,5 @@
 from django.db import migrations
-from django.db.models import CharField
+from django.db.models import CharField, Q, UniqueConstraint
 
 from ...models.fields import EncryptedTextField, Sha256Field
 
@@ -115,6 +115,14 @@ class_migrations = [
             verbose_name="access code hash",
         ),
         preserve_default=False,
+    ),
+    migrations.AddConstraint(
+        model_name="class",
+        constraint=UniqueConstraint(
+            condition=Q(("_access_code_hash", ""), _negated=True),
+            fields=("_access_code_hash",),
+            name="unique_access_code_hash_non_empty",
+        ),
     ),
     migrations.AlterField(
         model_name="class",

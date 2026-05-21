@@ -254,6 +254,13 @@ class Class(EncryptedModel):
 
     class Meta(TypedModelMeta):
         verbose_name_plural = "classes"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["_access_code_hash"],
+                condition=~models.Q(_access_code_hash=""),
+                name="unique_access_code_hash_non_empty",
+            ),
+        ]
 
     @property
     def dek_aead(self):
