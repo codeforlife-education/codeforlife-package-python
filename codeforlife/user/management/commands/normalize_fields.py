@@ -302,7 +302,7 @@ class Command(BaseCommand):
         unique_hash_field = bool(t.cast(Sha256Field, hash_field).unique)
 
         state: HashUniquenessState | None = None
-        if unique_hash_field and model_name in ["School"]:
+        if model_name in ["School"]:
             # Ensure we avoid collisions with hashes that already exist in rows
             # outside the queryset currently being normalized.
             state = self._build_hash_uniqueness_state(
