@@ -210,6 +210,43 @@ class SchoolTeacherInvitationModelManager(
     inactive invitations by default.
     """
 
+    @classmethod
+    def normalize_first_name(cls, first_name: str, lower=True):
+        """Normalize a teacher's first name.
+
+        The value is stripped and optionally lowercased.
+
+        Args:
+            first_name: The first name to normalize.
+            lower: Whether to lowercase the first name.
+
+        Returns:
+            The normalized first name.
+        """
+        # The local import avoids circular imports.
+        # pylint: disable-next=import-outside-toplevel
+        from .user import SchoolTeacherUserManager
+
+        return SchoolTeacherUserManager.normalize_first_name(first_name, lower)
+
+    @classmethod
+    def normalize_email(cls, email: str | None):
+        """Normalize a user's email address.
+
+        The value is stripped and lowercased.
+
+        Args:
+            email: The email address to normalize.
+
+        Returns:
+            The normalized email address.
+        """
+        # The local import avoids circular imports.
+        # pylint: disable-next=import-outside-toplevel
+        from .user import SchoolTeacherUserManager
+
+        return SchoolTeacherUserManager.normalize_email(email)
+
     def get_original_queryset(self):
         """
         Get the original queryset without filtering out inactive invitations.
@@ -256,15 +293,12 @@ class SchoolTeacherInvitation(EncryptedModel):
 
     _token_hash = Sha256Field(
         verbose_name=_("token hash"),
-        null=True,
-        unique=True,
         db_column="token_hash",
     )
     _token_plain: str
     _token_plain = models.CharField(max_length=88)  # type: ignore[assignment]
     _token_enc = EncryptedTextField(
         associated_data="token",
-        null=True,
         verbose_name=_("token"),
         db_column="token_enc",
     )
@@ -272,9 +306,7 @@ class SchoolTeacherInvitation(EncryptedModel):
     @property
     def token(self):
         """Get the decrypted token value."""
-        if self._token_enc is not None:
-            return EncryptedTextField.get(self, "_token_enc")
-        return self._token_plain
+        return EncryptedTextField.get(self, "_token_enc")
 
     @token.setter
     def token(self, value: str):
@@ -312,24 +344,28 @@ class SchoolTeacherInvitation(EncryptedModel):
     )  # Same as User model
     _invited_teacher_first_name_enc = EncryptedTextField(
         associated_data="invited_teacher_first_name",
-        null=True,
         verbose_name=_("invited teacher first name"),
         db_column="invited_teacher_first_name_enc",
+        normalize=lambda first_name: (
+            SchoolTeacherInvitationModelManager.normalize_first_name(
+                first_name, lower=False
+            )
+        ),
     )
 
     @property
     def invited_teacher_first_name(self):
         """Get the decrypted invited teacher first name value."""
-        if self._invited_teacher_first_name_enc is not None:
-            return EncryptedTextField.get(
-                self, "_invited_teacher_first_name_enc"
-            )
-        return self._invited_teacher_first_name_plain
+        return EncryptedTextField.get(self, "_invited_teacher_first_name_enc")
 
     @invited_teacher_first_name.setter
     def invited_teacher_first_name(self, value: str):
         """Sets the invited teacher first name value."""
-        self._invited_teacher_first_name_plain = value
+        self._invited_teacher_first_name_plain = (
+            SchoolTeacherInvitationModelManager.normalize_first_name(
+                value, lower=False
+            )
+        )
         EncryptedTextField.set(self, value, "_invited_teacher_first_name_enc")
 
     # --------------------------------------------------------------------------
@@ -343,7 +379,6 @@ class SchoolTeacherInvitation(EncryptedModel):
     )  # Same as User model
     _invited_teacher_last_name_enc = EncryptedTextField(
         associated_data="invited_teacher_last_name",
-        null=True,
         verbose_name=_("invited teacher last name"),
         db_column="invited_teacher_last_name_enc",
     )
@@ -351,11 +386,7 @@ class SchoolTeacherInvitation(EncryptedModel):
     @property
     def invited_teacher_last_name(self):
         """Get the decrypted invited teacher last name value."""
-        if self._invited_teacher_last_name_enc is not None:
-            return EncryptedTextField.get(
-                self, "_invited_teacher_last_name_enc"
-            )
-        return self._invited_teacher_last_name_plain
+        return EncryptedTextField.get(self, "_invited_teacher_last_name_enc")
 
     @invited_teacher_last_name.setter
     def invited_teacher_last_name(self, value: str):
@@ -374,22 +405,22 @@ class SchoolTeacherInvitation(EncryptedModel):
     )  # Same as User model
     _invited_teacher_email_enc = EncryptedTextField(
         associated_data="invited_teacher_email",
-        null=True,
         verbose_name=_("invited teacher email"),
         db_column="invited_teacher_email_enc",
+        normalize=SchoolTeacherInvitationModelManager.normalize_email,
     )
 
     @property
     def invited_teacher_email(self):
         """Get the decrypted invited teacher email value."""
-        if self._invited_teacher_email_enc is not None:
-            return EncryptedTextField.get(self, "_invited_teacher_email_enc")
-        return self._invited_teacher_email_plain
+        return EncryptedTextField.get(self, "_invited_teacher_email_enc")
 
     @invited_teacher_email.setter
     def invited_teacher_email(self, value: str):
         """Sets the invited teacher email value."""
-        self._invited_teacher_email_plain = value
+        self._invited_teacher_email_plain = (
+            SchoolTeacherInvitationModelManager.normalize_email(value)
+        )
         EncryptedTextField.set(self, value, "_invited_teacher_email_enc")
 
     # --------------------------------------------------------------------------
@@ -415,6 +446,15 @@ class SchoolTeacherInvitation(EncryptedModel):
     objects: SchoolTeacherInvitationModelManager = (
         SchoolTeacherInvitationModelManager()  # type: ignore[assignment]
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                condition=~models.Q(_token_hash=""),
+                fields=["_token_hash"],
+                name="unique_token_hash_non_empty",
+            ),
+        ]
 
     @property
     def is_expired(self):

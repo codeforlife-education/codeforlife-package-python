@@ -27,6 +27,8 @@ class Person(EncryptedModel):
 
     name = EncryptedTextField(associated_data="name")
 
+    objects: EncryptedModel.Manager["Person"]  # type: ignore[assignment]
+
     class Meta(TypedModelMeta):
         app_label = "codeforlife.user"
 
@@ -37,13 +39,13 @@ class TestEncryptedModel(ModelTestCase[EncryptedModel]):
         with self.assert_raises_validation_error(code="cannot_update"):
             Person.objects.update(name="Alice")
 
-    def test_objects___bulk_update(self):
+    def test_objects___bulk_update__cannot_bulk_update(self):
         """Cannot bulk update encrypted field via objects.bulk_update()."""
-        assert Person.objects.bulk_update is None
-
-    def test_objects___abulk_update(self):
-        """Cannot abulk_update encrypted field via objects.abulk_update()."""
-        assert Person.objects.abulk_update is None
+        with self.assert_raises_validation_error(code="cannot_bulk_update"):
+            Person.objects.bulk_update(
+                [Person(name="Alice"), Person(name="Bob")],
+                fields=["name"],
+            )
 
     def test_objects___bulk_create(self):
         """Cannot bulk create encrypted field via objects.bulk_create()."""

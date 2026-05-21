@@ -48,6 +48,33 @@ class_name_validators: Validators = [
 class ClassModelManager(EncryptedModel.Manager["Class"]):
     """Manager for Class model."""
 
+    @classmethod
+    def normalize_access_code(cls, access_code: str):
+        """Normalize a class' access code.
+
+        The value is stripped and uppercased.
+
+        Returns:
+            The normalized access code.
+        """
+        return access_code.strip().upper()
+
+    @classmethod
+    def normalize_name(cls, name: str, lower=True):
+        """Normalize a class' name.
+
+        The value is stripped and optionally lowercased.
+
+        Args:
+            name: The name to normalize.
+            lower: Whether to lowercase the name.
+
+        Returns:
+            The normalized name.
+        """
+        name = name.strip()
+        return name.lower() if lower else name
+
     def get_original_queryset(self):
         """Get the original queryset without filtering."""
         return super().get_queryset()
@@ -79,29 +106,31 @@ class Class(EncryptedModel):
 
     _name_hash = Sha256Field(
         verbose_name=_("name hash"),
-        null=True,
         db_column="name_hash",
+        normalize=lambda name: ClassModelManager.normalize_name(
+            name, lower=True
+        ),
     )
     _name_plain: str
     _name_plain = models.CharField(max_length=200)  # type: ignore[assignment]
     _name_enc = EncryptedTextField(
         associated_data="name",
         db_column="name_enc",
-        null=True,
         verbose_name=_("name"),
+        normalize=lambda name: ClassModelManager.normalize_name(
+            name, lower=False
+        ),
     )
 
     @property
     def name(self):
         """Get the name of the class."""
-        if self._name_enc is not None:
-            return EncryptedTextField.get(self, "_name_enc")
-        return self._name_plain
+        return EncryptedTextField.get(self, "_name_enc")
 
     @name.setter
     def name(self, value: str):
         """Set the name of the class."""
-        self._name_plain = value
+        self._name_plain = ClassModelManager.normalize_name(value, lower=False)
         EncryptedTextField.set(self, value, "_name_enc")
         Sha256Field.set(self, value, "_name_hash")
 
@@ -120,32 +149,29 @@ class Class(EncryptedModel):
 
     _access_code_hash = Sha256Field(
         verbose_name=_("access code hash"),
-        null=True,
         db_column="access_code_hash",
+        normalize=ClassModelManager.normalize_access_code,
     )
-    _access_code_plain: t.Optional[str]
+    _access_code_plain: str
     _access_code_plain = models.CharField(  # type: ignore[assignment]
         max_length=5,
-        null=True,
     )
     _access_code_enc = EncryptedTextField(
         associated_data="access_code",
-        null=True,
         verbose_name=_("access code"),
         db_column="access_code_enc",
+        normalize=ClassModelManager.normalize_access_code,
     )
 
     @property
     def access_code(self):
         """Get the access code for the class."""
-        if self._access_code_enc is not None:
-            return EncryptedTextField.get(self, "_access_code_enc")
-        return self._access_code_plain
+        return EncryptedTextField.get(self, "_access_code_enc")
 
     @access_code.setter
-    def access_code(self, value: t.Optional[str]):
+    def access_code(self, value: str):
         """Set the access code for the class."""
-        self._access_code_plain = value
+        self._access_code_plain = ClassModelManager.normalize_access_code(value)
         EncryptedTextField.set(self, value, "_access_code_enc")
         Sha256Field.set(self, value, "_access_code_hash")
 
@@ -228,6 +254,13 @@ class Class(EncryptedModel):
 
     class Meta(TypedModelMeta):
         verbose_name_plural = "classes"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["_access_code_hash"],
+                condition=~models.Q(_access_code_hash=""),
+                name="unique_access_code_hash_non_empty",
+            ),
+        ]
 
     @property
     def dek_aead(self):
