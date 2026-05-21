@@ -24,11 +24,15 @@ from ....types import Validators
 from ....validators import UnicodeAlphanumericCharSetValidator
 
 if t.TYPE_CHECKING:  # pragma: no cover
+    from django_stubs_ext.db.models import TypedModelMeta
+
     from ..auth_factor import AuthFactor
     from ..otp_bypass_token import OtpBypassToken
     from ..session import Session
     from ..student import Student
     from ..teacher import Teacher
+else:
+    TypedModelMeta = object
 
 
 # TODO: add to model validators in new schema.
@@ -314,7 +318,7 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
 
     date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
 
-    class Meta:
+    class Meta(TypedModelMeta):
         verbose_name = _("user")
         verbose_name_plural = _("users")
         constraints = [

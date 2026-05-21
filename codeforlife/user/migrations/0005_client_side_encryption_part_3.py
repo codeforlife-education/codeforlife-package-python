@@ -255,10 +255,17 @@ school_migrations = [
             default="",
             editable=False,
             max_length=64,
-            unique=True,
             verbose_name="name hash",
         ),
         preserve_default=False,
+    ),
+    migrations.AddConstraint(
+        model_name="school",
+        constraint=UniqueConstraint(
+            condition=Q(("_name_hash", ""), _negated=True),
+            fields=("_name_hash",),
+            name="unique_name_hash_non_empty",
+        ),
     ),
 ]
 

@@ -18,6 +18,10 @@ from ...validators import UnicodeAlphanumericCharSetValidator
 if t.TYPE_CHECKING:  # pragma: no cover
     from datetime import datetime
 
+    from django_stubs_ext.db.models import TypedModelMeta
+else:
+    TypedModelMeta = object
+
 
 # TODO: add to School.name field-validators in new schema.
 school_name_validators: Validators = [
@@ -71,7 +75,6 @@ class School(DataEncryptionKeyModel):
 
     _name_hash = Sha256Field(
         verbose_name=_("name hash"),
-        unique=True,
         db_column="name_hash",
         normalize=lambda name: SchoolModelManager.normalize_name(
             name, lower=True
@@ -132,6 +135,15 @@ class School(DataEncryptionKeyModel):
     objects: SchoolModelManager = (
         SchoolModelManager()  # type: ignore[assignment]
     )
+
+    class Meta(TypedModelMeta):
+        constraints = [
+            models.UniqueConstraint(
+                condition=~models.Q(_name_hash=""),
+                fields=["_name_hash"],
+                name="unique_name_hash_non_empty",
+            ),
+        ]
 
     def __str__(self):
         return self.name
