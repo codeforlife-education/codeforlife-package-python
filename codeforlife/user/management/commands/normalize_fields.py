@@ -282,6 +282,11 @@ class Command(BaseCommand):
             log("No hash field found, skipping hash normalization.")
             return
 
+        # If the hash field has no normalization method, there's nothing to do.
+        if hash_field.normalize is None:
+            log("No normalization method on hash field, skipping.")
+            return
+
         queryset = self._build_hash_queryset(
             model_manager=model_manager,
             plain_field_is_null_or_empty=plain_field_is_null_or_empty,
@@ -297,7 +302,7 @@ class Command(BaseCommand):
         unique_hash_field = bool(t.cast(Sha256Field, hash_field).unique)
 
         state: HashUniquenessState | None = None
-        if unique_hash_field:
+        if unique_hash_field and model_name in ["School"]:
             # Ensure we avoid collisions with hashes that already exist in rows
             # outside the queryset currently being normalized.
             state = self._build_hash_uniqueness_state(
@@ -376,6 +381,7 @@ class Command(BaseCommand):
         hash_field: Sha256Field,
         state: HashUniquenessState | None,
     ) -> None:
+        assert hash_field.normalize is not None
         hash_field_name = hash_field.name
         value = t.cast(str, getattr(instance, plain_field_name))
         normalized_base = hash_field.normalize(value)
