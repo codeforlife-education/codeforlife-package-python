@@ -299,7 +299,6 @@ class Command(BaseCommand):
             return
 
         log(f"Hashing {count} records...")
-        unique_hash_field = bool(t.cast(Sha256Field, hash_field).unique)
 
         state: HashUniquenessState | None = None
         if model_name in ["School"]:
@@ -311,11 +310,18 @@ class Command(BaseCommand):
                 hash_field=t.cast(Sha256Field, hash_field),
             )
 
-        if enable_threading:
+        if enable_threading and state is not None:
+            log(
+                "Uniqueness suffix updates require sequential saves; "
+                "disabling threading."
+            )
+
+        if enable_threading and state is None:
             self._normalize_and_hash_queryset_threaded(
                 model_manager=model_manager,
                 model_queryset=queryset,
                 plain_field_name=plain_field_name,
+                enc_field=enc_field,
                 hash_field=t.cast(Sha256Field, hash_field),
                 count=count,
                 chunk_size=chunk_size,
@@ -325,9 +331,9 @@ class Command(BaseCommand):
             )
         else:
             self._normalize_and_hash_queryset_sequential(
-                model_manager=model_manager,
                 model_queryset=queryset,
                 plain_field_name=plain_field_name,
+                enc_field=enc_field,
                 hash_field=t.cast(Sha256Field, hash_field),
                 count=count,
                 chunk_size=chunk_size,
@@ -378,30 +384,32 @@ class Command(BaseCommand):
         self,
         instance: Model,
         plain_field_name: str,
+        enc_field: BaseEncryptedField[t.Any] | None,
         hash_field: Sha256Field,
         state: HashUniquenessState | None,
-    ) -> None:
+    ) -> list[str]:
         assert hash_field.normalize is not None
         hash_field_name = hash_field.name
         value = t.cast(str, getattr(instance, plain_field_name))
         normalized_base = hash_field.normalize(value)
+        update_fields = [hash_field_name]
 
         if state is None:
             setattr(
                 instance, hash_field_name, Sha256Field.hash(normalized_base)
             )
-            return
+            return update_fields
 
         suffix = state.suffix_counters.get(normalized_base, 0)
         while True:
             suffix += 1
-            candidate_plain = (
+            candidate_hash_plain = (
                 normalized_base
                 if suffix == 1
                 else f"{normalized_base} {suffix}"
             )
             candidate_hash = Sha256Field.hash(
-                hash_field.normalize(candidate_plain)
+                hash_field.normalize(candidate_hash_plain)
             )
             if candidate_hash not in state.used_hashes:
                 break
@@ -409,60 +417,62 @@ class Command(BaseCommand):
         state.suffix_counters[normalized_base] = suffix
         state.used_hashes.add(candidate_hash)
         setattr(instance, hash_field_name, candidate_hash)
+        if suffix == 1:
+            return update_fields
+
+        candidate_plain_value = f"{value} {suffix}"
+        setattr(instance, plain_field_name, candidate_plain_value)
+        update_fields.append(plain_field_name)
+
+        if enc_field is not None:
+            BaseEncryptedField.set(
+                instance,
+                candidate_plain_value,
+                enc_field.name,
+                normalize=True,
+            )
+            update_fields.append(enc_field.name)
+
+        return update_fields
 
     def _normalize_and_hash_queryset_sequential(
         self,
-        model_manager: ModelManager,
         model_queryset: ModelQuerySet,
         plain_field_name: str,
+        enc_field: BaseEncryptedField[t.Any] | None,
         hash_field: Sha256Field,
         count: int,
         chunk_size: int,
         state: HashUniquenessState | None,
         log: LogFn,
     ) -> None:
-        instances: list[Model] = []
         hash_field_name = hash_field.name
-        update_fields = [hash_field_name]
+        only_fields = [plain_field_name, hash_field_name]
+        if state is not None:
+            only_fields.append("dek")
+            if enc_field is not None:
+                only_fields.append(enc_field.name)
 
-        def bulk_update(i: int):
-            nonlocal instances
-            if not instances:
-                return
-            model_manager.bulk_update(
-                instances,
-                fields=update_fields,
-                batch_size=chunk_size,
-            )
-            instances = []
-            log(f"Progress: {i}/{count}")
-
-        i = 0
         for i, instance in enumerate(
-            model_queryset.only(plain_field_name, hash_field_name).iterator(
-                chunk_size
-            ),
+            model_queryset.only(*only_fields).iterator(chunk_size),
             start=1,
         ):
-            self._assign_unique_plain_and_hash(
+            instance_update_fields = self._assign_unique_plain_and_hash(
                 instance=instance,
                 plain_field_name=plain_field_name,
+                enc_field=enc_field,
                 hash_field=hash_field,
                 state=state,
             )
-            instances.append(instance)
-
-            if len(instances) == chunk_size:
-                bulk_update(i)
-
-        if len(instances) > 0:
-            bulk_update(count)
+            instance.save(update_fields=instance_update_fields)
+            log(f"Progress: {i}/{count}")
 
     def _normalize_and_hash_queryset_threaded(
         self,
         model_manager: ModelManager,
         model_queryset: ModelQuerySet,
         plain_field_name: str,
+        enc_field: BaseEncryptedField[t.Any] | None,
         hash_field: Sha256Field,
         count: int,
         chunk_size: int,
@@ -495,6 +505,7 @@ class Command(BaseCommand):
                 self._assign_unique_plain_and_hash(
                     instance=instance,
                     plain_field_name=plain_field_name,
+                    enc_field=enc_field,
                     hash_field=hash_field,
                     state=state,
                 )
