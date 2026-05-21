@@ -33,7 +33,7 @@ class Sha256Field(NormalizedField[Model, str], CharField):
 
     def __init__(
         self,
-        normalize: Normalize[str] = lambda x: x,
+        normalize: None | Normalize[str] = None,
         editable: t.Literal[False] = False,
         max_length: t.Literal[64] = 64,  # Length of SHA-256 hash in hexadecimal
         **kwargs,
@@ -91,9 +91,11 @@ class Sha256Field(NormalizedField[Model, str], CharField):
         """
         if value is not None and kwargs.get("hash", True):
             if kwargs.get("normalize", True):
-                value = t.cast(
+                field = t.cast(
                     Sha256Field, instance._meta.get_field(field_name)
-                ).normalize(value)
+                )
+                if field.normalize is not None:
+                    value = field.normalize(value)
             value = cls.hash(value)
 
         setattr(instance, field_name, value)
@@ -110,15 +112,22 @@ class LookupMixin(lookups.Lookup):
 
         field: Sha256Field = self.lhs.output_field
 
-        if self.rhs is None:
-            return sql, params
-
-        if isinstance(self.rhs, str):
-            return sql, [Sha256Field.hash(field.normalize(self.rhs))]
-
-        return sql, [
-            Sha256Field.hash(field.normalize(value)) for value in self.rhs
-        ]
+        return sql, (
+            params
+            if self.rhs is None
+            else (
+                [
+                    Sha256Field.hash(
+                        value
+                        if field.normalize is None
+                        else field.normalize(value)
+                    )
+                    for value in (
+                        [self.rhs] if isinstance(self.rhs, str) else self.rhs
+                    )
+                ]
+            )
+        )
 
 
 # pylint: disable-next=abstract-method,too-many-ancestors

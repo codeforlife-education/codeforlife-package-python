@@ -64,7 +64,7 @@ class BaseEncryptedField(
     def __init__(
         self,
         associated_data: str,
-        normalize: Normalize[T] = lambda x: x,
+        normalize: None | Normalize[T] = None,
         unique: t.Literal[False] = False,
         **kwargs,
     ):
@@ -284,7 +284,7 @@ class BaseEncryptedField(
         if value is None:
             instance.__pending_encryption_values__.pop(field.attname, None)
         else:
-            if kwargs.get("normalize", True):
+            if kwargs.get("normalize", True) and field.normalize is not None:
                 value = field.normalize(value)
             instance.__pending_encryption_values__[field.attname] = value
 

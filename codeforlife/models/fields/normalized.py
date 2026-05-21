@@ -15,13 +15,13 @@ Normalize: t.TypeAlias = t.Callable[[T], T]
 class NormalizedField(Field, t.Generic[AnyModel, T]):
     """A Django model field that normalizes values before saving."""
 
-    def __init__(self, normalize: Normalize[T], *args, **kwargs):
+    def __init__(self, normalize: None | Normalize[T], *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.normalize = normalize
 
     @classmethod
     def set(
-        cls, instance: AnyModel, value: t.Optional[T], field_name: str, **kwargs
+        cls, instance: AnyModel, value: None | T, field_name: str, **kwargs
     ):
         """
         Normalize and assign a value to a NormalizedField.
@@ -32,9 +32,11 @@ class NormalizedField(Field, t.Generic[AnyModel, T]):
             field_name: The name of the NormalizedField on the model.
         """
         if value is not None:
-            value = t.cast(
+            field = t.cast(
                 NormalizedField[AnyModel, T],
                 instance._meta.get_field(field_name),
-            ).normalize(value)
+            )
+            if field.normalize is not None:
+                value = field.normalize(value)
 
         setattr(instance, field_name, value)
