@@ -42,9 +42,10 @@ class Sha256FieldTests(TestCase):
         """
         user = User.objects.filter(_email_hash__isnull=False).first()
         assert user
+        email = user.email + "  "  # add whitespace to test value is normalized
         # pylint: disable-next=protected-access
-        assert user.email != user._email_hash
-        assert User.objects.get(_email_hash__sha256=user.email) == user
+        assert email != user._email_hash
+        assert User.objects.get(_email_hash__sha256=email) == user
 
     def test_lookup__sha256_in(self):
         """
@@ -53,6 +54,7 @@ class Sha256FieldTests(TestCase):
         """
         user = User.objects.filter(_email_hash__isnull=False).first()
         assert user
+        email = user.email + "  "  # add whitespace to test value is normalized
         # pylint: disable-next=protected-access
-        assert user.email != user._email_hash
-        assert User.objects.get(_email_hash__sha256_in=[user.email]) == user
+        assert email != user._email_hash
+        assert User.objects.get(_email_hash__sha256_in=[email]) == user

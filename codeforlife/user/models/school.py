@@ -20,9 +20,29 @@ from ...validators import UnicodeAlphanumericCharSetValidator
 if t.TYPE_CHECKING:  # pragma: no cover
     from datetime import datetime
 
+    from django_stubs_ext.db.models import TypedModelMeta
+else:
+    TypedModelMeta = object
+
 
 class SchoolModelManager(DataEncryptionKeyModel.Manager["School"]):
     """Manager for School model."""
+
+    @classmethod
+    def normalize_name(cls, name: str, lower=True):
+        """Normalize a school's name.
+
+        The value is stripped and optionally lowercased.
+
+        Args:
+            name: The name to normalize.
+            lower: Whether to lowercase the name.
+
+        Returns:
+            The normalized name.
+        """
+        name = name.strip()
+        return name.lower() if lower else name
 
     def get_original_queryset(self):
         """Get the original queryset without filtering."""
@@ -50,11 +70,17 @@ class School(DataEncryptionKeyModel):
         verbose_name=_("name hash"),
         db_column="name_hash",
         unique=True,
+        normalize=lambda name: SchoolModelManager.normalize_name(
+            name, lower=True
+        ),
     )
     _name_enc = EncryptedTextField(
         associated_data="name",
         verbose_name=_("name"),
         db_column="name_enc",
+        normalize=lambda name: SchoolModelManager.normalize_name(
+            name, lower=False
+        ),
     )
 
     name_validators: Validators = [
@@ -106,6 +132,15 @@ class School(DataEncryptionKeyModel):
     objects: SchoolModelManager = (
         SchoolModelManager()  # type: ignore[assignment]
     )
+
+    class Meta(TypedModelMeta):
+        constraints = [
+            models.UniqueConstraint(
+                condition=~models.Q(_name_hash=""),
+                fields=["_name_hash"],
+                name="unique_name_hash_non_empty",
+            ),
+        ]
 
     def __str__(self):
         return self.name

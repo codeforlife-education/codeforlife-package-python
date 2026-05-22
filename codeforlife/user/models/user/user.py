@@ -26,11 +26,15 @@ from ....types import Validators
 from ....validators import UnicodeAlphanumericCharSetValidator
 
 if t.TYPE_CHECKING:  # pragma: no cover
+    from django_stubs_ext.db.models import TypedModelMeta
+
     from ..auth_factor import AuthFactor
     from ..otp_bypass_token import OtpBypassToken
     from ..session import Session
     from ..student import Student
     from ..teacher import Teacher
+else:
+    TypedModelMeta = object
 
 
 AnyUser = t.TypeVar("AnyUser", bound="User")
@@ -58,11 +62,37 @@ class UserManager(
             username=username, email=email, password=password, **extra_fields
         )
 
-    # pylint: disable=missing-function-docstring
+    @classmethod
+    def normalize_email(cls, email):
+        """Normalize a user's email address.
 
-    # @classmethod
-    # def normalize_email(cls, email):
-    #     return super().normalize_email(email).lower()
+        The value is stripped and lowercased.
+
+        Args:
+            email: The email address to normalize.
+
+        Returns:
+            The normalized email address.
+        """
+        return super().normalize_email(email).lower()
+
+    @classmethod
+    def normalize_first_name(cls, first_name: str, lower=True):
+        """Normalize a user's first name.
+
+        The value is stripped.
+
+        Args:
+            first_name: The first name to normalize.
+            lower: Whether to lowercase the first name.
+
+        Returns:
+            The normalized first name.
+        """
+        first_name = first_name.strip()
+        return first_name.lower() if lower else first_name
+
+    # pylint: disable=missing-function-docstring
 
     def get_by_natural_key(self, username):
         return self.get(_username_hash__sha256=username)
@@ -158,11 +188,17 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
     _first_name_hash = Sha256Field(
         verbose_name=_("first name hash"),
         db_column="first_name_hash",
+        normalize=lambda first_name: UserManager.normalize_first_name(
+            first_name, lower=True
+        ),
     )
     _first_name_enc = EncryptedTextField(
         associated_data="first_name",
         db_column="first_name_enc",
         verbose_name=_("first name"),
+        normalize=lambda first_name: UserManager.normalize_first_name(
+            first_name, lower=False
+        ),
     )
 
     first_name_validators: Validators = [
@@ -221,11 +257,13 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
     _email_hash = Sha256Field(
         verbose_name=_("email hash"),
         db_column="email_hash",
+        normalize=UserManager.normalize_email,
     )
     _email_enc = EncryptedTextField(
         associated_data="email",
         db_column="email_enc",
         verbose_name=_("email address"),
+        normalize=UserManager.normalize_email,
     )
 
     email_validators: Validators = [validate_email, MaxLengthValidator(254)]
@@ -239,7 +277,6 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
     @validated_field_setter(*email_validators, blank=True)
     def email(self, value: str):
         """Set the user's email address."""
-        value = self.__class__.objects.normalize_email(value)
         EncryptedTextField.set(self, value, "_email_enc")
         Sha256Field.set(self, value, "_email_hash")
 
@@ -266,9 +303,16 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
 
     date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
 
-    class Meta:
+    class Meta(TypedModelMeta):
         verbose_name = _("user")
         verbose_name_plural = _("users")
+        constraints = [
+            models.UniqueConstraint(
+                condition=~models.Q(_username_hash=""),
+                fields=["_username_hash"],
+                name="unique_username_hash_non_empty",
+            ),
+        ]
 
     # TODO: remove in new schema
     password: str  # type: ignore[assignment]

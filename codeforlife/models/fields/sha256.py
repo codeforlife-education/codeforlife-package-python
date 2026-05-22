@@ -25,12 +25,15 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db.models import CharField, Model, lookups
 
+from .normalized import Normalize, NormalizedField
 
-class Sha256Field(CharField):
+
+class Sha256Field(NormalizedField[Model, str], CharField):
     """A CharField for deterministic, one-way hashed values."""
 
     def __init__(
         self,
+        normalize: None | Normalize[str] = None,
         editable: t.Literal[False] = False,
         max_length: t.Literal[64] = 64,  # Length of SHA-256 hash in hexadecimal
         **kwargs,
@@ -47,7 +50,12 @@ class Sha256Field(CharField):
                 code="max_length_not_64",
             )
 
-        super().__init__(editable=editable, max_length=max_length, **kwargs)
+        super().__init__(
+            normalize=normalize,
+            editable=editable,
+            max_length=max_length,
+            **kwargs,
+        )
 
     @staticmethod
     def hash(value: str):
@@ -59,14 +67,18 @@ class Sha256Field(CharField):
         Returns:
             A hash of the value salted with the Django secret key.
         """
-        return hmac.new(
-            key=settings.SECRET_KEY.encode("utf-8"),
-            msg=value.encode("utf-8"),
-            digestmod=sha256,
-        ).hexdigest()
+        return (
+            ""
+            if value == ""
+            else hmac.new(
+                key=settings.SECRET_KEY.encode("utf-8"),
+                msg=value.encode("utf-8"),
+                digestmod=sha256,
+            ).hexdigest()
+        )
 
     @classmethod
-    def set(cls, instance: Model, value: t.Optional[str], field_name: str):
+    def set(cls, instance, value, field_name, **kwargs):
         """
         Hash and assign a plaintext value to a Sha256Field.
 
@@ -74,15 +86,52 @@ class Sha256Field(CharField):
             instance: The model instance on which to set the value.
             value: The plaintext value to hash and set.
             field_name: The name of the Sha256Field on the model.
+            normalize: Whether to normalize the value before hashing.
+            hash: Whether to hash the value before setting it.
         """
-        if value is not None:
+        if value is not None and kwargs.get("hash", True):
+            if kwargs.get("normalize", True):
+                field = t.cast(
+                    Sha256Field, instance._meta.get_field(field_name)
+                )
+                if field.normalize is not None:
+                    value = field.normalize(value)
             value = cls.hash(value)
 
         setattr(instance, field_name, value)
 
 
 # pylint: disable-next=abstract-method
-class Sha256ExactLookup(lookups.Exact):
+class LookupMixin(lookups.Lookup):
+    """Mixin for lookups that hash the right-hand side value(s)."""
+
+    rhs: None | str | t.Iterable[str]
+
+    def process_rhs(self, compiler, connection):
+        sql, params = super().process_rhs(compiler, connection)
+
+        field: Sha256Field = self.lhs.output_field
+
+        return sql, (
+            params
+            if self.rhs is None
+            else (
+                [
+                    Sha256Field.hash(
+                        value
+                        if field.normalize is None
+                        else field.normalize(value)
+                    )
+                    for value in (
+                        [self.rhs] if isinstance(self.rhs, str) else self.rhs
+                    )
+                ]
+            )
+        )
+
+
+# pylint: disable-next=abstract-method,too-many-ancestors
+class Sha256ExactLookup(LookupMixin, lookups.Exact):
     """
     A lookup that hashes a plaintext right-hand side value before comparing.
 
@@ -90,14 +139,7 @@ class Sha256ExactLookup(lookups.Exact):
     `User.objects.filter(_email_hash__sha256="user@example.com")`
     """
 
-    rhs: t.Optional[str]
-
     lookup_name = "sha256"
-
-    def process_rhs(self, compiler, connection):
-        sql, params = super().process_rhs(compiler, connection)
-
-        return sql, params if self.rhs is None else [Sha256Field.hash(self.rhs)]
 
     def get_rhs_op(self, connection, rhs):
         """
@@ -109,7 +151,7 @@ class Sha256ExactLookup(lookups.Exact):
 
 
 # pylint: disable-next=abstract-method,too-many-ancestors
-class Sha256InLookup(lookups.In):
+class Sha256InLookup(LookupMixin, lookups.In):
     """
     A lookup that hashes plaintext right-hand side values before comparing.
 
@@ -117,18 +159,7 @@ class Sha256InLookup(lookups.In):
     `User.objects.filter(_email_hash__sha256_in=["user@example.com"])`
     """
 
-    rhs: t.Optional[t.Iterable[str]]
-
     lookup_name = f"{Sha256ExactLookup.lookup_name}_in"
-
-    def process_rhs(self, compiler, connection):
-        sql, params = super().process_rhs(compiler, connection)
-
-        return sql, (
-            params
-            if self.rhs is None
-            else [Sha256Field.hash(value) for value in self.rhs]
-        )
 
 
 Sha256Field.register_lookup(Sha256ExactLookup)

@@ -76,12 +76,21 @@ class EncryptedModel(Model):
         that would bypass field-level encryption.
         """
 
+        def _is_encrypted_field(self, field_name: str):
+            return any(
+                field.name == field_name
+                for field in self.model.ENCRYPTED_FIELDS
+            )
+
+        def _is_none_or_empty(self, value: t.Any):
+            return value is None or value == b""
+
         def update(self, **kwargs):
             """Ensure encrypted fields are not updated via 'update()'."""
-            for name in kwargs:
-                if any(
-                    field.name == name for field in self.model.ENCRYPTED_FIELDS
-                ):
+            for name, value in kwargs.items():
+                if self._is_encrypted_field(
+                    name
+                ) and not self._is_none_or_empty(value):
                     raise ValidationError(
                         f"Cannot update encrypted field '{name}' via"
                         " 'update()'. Set the property on each instance"
@@ -91,9 +100,22 @@ class EncryptedModel(Model):
 
             return super().update(**kwargs)
 
+        def bulk_update(self, objs, fields, batch_size=None):
+            """Ensure encrypted fields are not updated via 'bulk_update()'."""
+            for name in fields:
+                if self._is_encrypted_field(name) and not all(
+                    self._is_none_or_empty(getattr(obj, name)) for obj in objs
+                ):
+                    raise ValidationError(
+                        f"Cannot bulk update encrypted field '{name}' via"
+                        " 'bulk_update()'. Set the property on each instance"
+                        " instead.",
+                        code="cannot_bulk_update",
+                    )
+
+            return super().bulk_update(objs, fields, batch_size)
+
         # Disable bulk operations that would bypass field-level encryption.
-        bulk_update: t.Never = None  # type: ignore[assignment]
-        abulk_update: t.Never = None  # type: ignore[assignment]
         bulk_create: t.Never = None  # type: ignore[assignment]
         abulk_create: t.Never = None  # type: ignore[assignment]
         in_bulk: t.Never = None  # type: ignore[assignment]

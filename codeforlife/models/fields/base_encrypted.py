@@ -29,6 +29,7 @@ from ...types import Args, KwArgs
 from ..encrypted import EncryptedModel
 from ..utils import is_real_model_class
 from .deferred_attribute import DeferredAttribute
+from .normalized import Normalize, NormalizedField
 
 T = t.TypeVar("T")
 Ciphertext: t.TypeAlias = t.Union[bytes, memoryview]
@@ -51,14 +52,27 @@ class EncryptedAttribute(
         super().__set__(instance, value)
 
 
-class BaseEncryptedField(BinaryField, t.Generic[T]):
+class BaseEncryptedField(
+    NormalizedField[EncryptedModel, T], BinaryField, t.Generic[T]
+):
     """Binary field base class for storing encrypted typed values."""
 
     model: t.Type[EncryptedModel]
 
     descriptor_class = EncryptedAttribute
 
-    def __init__(self, associated_data: str, **kwargs):
+    def __init__(
+        self,
+        associated_data: str,
+        normalize: None | Normalize[T] = None,
+        unique: t.Literal[False] = False,
+        **kwargs,
+    ):
+        if unique:
+            raise ValidationError(
+                f"{self.__class__.__name__} does not support unique=True.",
+                code="unique_not_supported",
+            )
         if not associated_data:
             raise ValidationError(
                 "Associated data cannot be empty.",
@@ -66,7 +80,7 @@ class BaseEncryptedField(BinaryField, t.Generic[T]):
             )
         self.associated_data = associated_data
 
-        super().__init__(**kwargs)
+        super().__init__(normalize=normalize, unique=unique, **kwargs)
 
     def deconstruct(self):
         name, path, args, kwargs = t.cast(
@@ -249,8 +263,8 @@ class BaseEncryptedField(BinaryField, t.Generic[T]):
 
         return decrypted_value
 
-    @staticmethod
-    def set(instance: EncryptedModel, value: t.Optional[T], field_name: str):
+    @classmethod
+    def set(cls, instance, value, field_name, **kwargs):
         """Set a typed plaintext value for an encrypted field.
 
         The plaintext is staged in pending-encryption storage and encrypted at
@@ -260,6 +274,7 @@ class BaseEncryptedField(BinaryField, t.Generic[T]):
             instance: The model instance on which to set the value.
             value: The plaintext value to set. If None, the field is cleared.
             field_name: The name of the encrypted field to set.
+            normalize: Whether to normalize the value before setting it.
         """
         field = t.cast(
             BaseEncryptedField[T], instance._meta.get_field(field_name)
@@ -269,6 +284,8 @@ class BaseEncryptedField(BinaryField, t.Generic[T]):
         if value is None:
             instance.__pending_encryption_values__.pop(field.attname, None)
         else:
+            if kwargs.get("normalize", True) and field.normalize is not None:
+                value = field.normalize(value)
             instance.__pending_encryption_values__[field.attname] = value
 
         # In all cases we need to clear the internal and cached-decrypted value.

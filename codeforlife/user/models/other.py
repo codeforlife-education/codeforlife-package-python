@@ -213,6 +213,43 @@ class SchoolTeacherInvitationModelManager(
     inactive invitations by default.
     """
 
+    @classmethod
+    def normalize_first_name(cls, first_name: str, lower=True):
+        """Normalize a teacher's first name.
+
+        The value is stripped and optionally lowercased.
+
+        Args:
+            first_name: The first name to normalize.
+            lower: Whether to lowercase the first name.
+
+        Returns:
+            The normalized first name.
+        """
+        # The local import avoids circular imports.
+        # pylint: disable-next=import-outside-toplevel
+        from .user import SchoolTeacherUserManager
+
+        return SchoolTeacherUserManager.normalize_first_name(first_name, lower)
+
+    @classmethod
+    def normalize_email(cls, email: str | None):
+        """Normalize a user's email address.
+
+        The value is stripped and lowercased.
+
+        Args:
+            email: The email address to normalize.
+
+        Returns:
+            The normalized email address.
+        """
+        # The local import avoids circular imports.
+        # pylint: disable-next=import-outside-toplevel
+        from .user import SchoolTeacherUserManager
+
+        return SchoolTeacherUserManager.normalize_email(email)
+
     def get_original_queryset(self):
         """
         Get the original queryset without filtering out inactive invitations.
@@ -299,6 +336,11 @@ class SchoolTeacherInvitation(EncryptedModel):
         associated_data="invited_teacher_first_name",
         verbose_name=_("invited teacher first name"),
         db_column="invited_teacher_first_name_enc",
+        normalize=lambda first_name: (
+            SchoolTeacherInvitationModelManager.normalize_first_name(
+                first_name, lower=False
+            )
+        ),
     )
 
     @property
@@ -353,6 +395,7 @@ class SchoolTeacherInvitation(EncryptedModel):
         associated_data="invited_teacher_email",
         verbose_name=_("invited teacher email"),
         db_column="invited_teacher_email_enc",
+        normalize=SchoolTeacherInvitationModelManager.normalize_email,
     )
 
     @property
@@ -395,6 +438,15 @@ class SchoolTeacherInvitation(EncryptedModel):
     objects: SchoolTeacherInvitationModelManager = (
         SchoolTeacherInvitationModelManager()  # type: ignore[assignment]
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                condition=~models.Q(_token_hash=""),
+                fields=["_token_hash"],
+                name="unique_token_hash_non_empty",
+            ),
+        ]
 
     @property
     def is_expired(self):

@@ -35,6 +35,33 @@ else:
 class ClassModelManager(EncryptedModel.Manager["Class"]):
     """Manager for Class model."""
 
+    @classmethod
+    def normalize_access_code(cls, access_code: str):
+        """Normalize a class' access code.
+
+        The value is stripped and uppercased.
+
+        Returns:
+            The normalized access code.
+        """
+        return access_code.strip().upper()
+
+    @classmethod
+    def normalize_name(cls, name: str, lower=True):
+        """Normalize a class' name.
+
+        The value is stripped and optionally lowercased.
+
+        Args:
+            name: The name to normalize.
+            lower: Whether to lowercase the name.
+
+        Returns:
+            The normalized name.
+        """
+        name = name.strip()
+        return name.lower() if lower else name
+
     def get_original_queryset(self):
         """Get the original queryset without filtering."""
         return super().get_queryset()
@@ -63,11 +90,17 @@ class Class(EncryptedModel):
     _name_hash = Sha256Field(
         verbose_name=_("name hash"),
         db_column="name_hash",
+        normalize=lambda name: ClassModelManager.normalize_name(
+            name, lower=True
+        ),
     )
     _name_enc = EncryptedTextField(
         associated_data="name",
         db_column="name_enc",
         verbose_name=_("name"),
+        normalize=lambda name: ClassModelManager.normalize_name(
+            name, lower=False
+        ),
     )
 
     name_validators: Validators = [
@@ -102,14 +135,14 @@ class Class(EncryptedModel):
 
     _access_code_hash = Sha256Field(
         verbose_name=_("access code hash"),
-        null=True,
         db_column="access_code_hash",
+        normalize=ClassModelManager.normalize_access_code,
     )
     _access_code_enc = EncryptedTextField(
         associated_data="access_code",
-        null=True,
         verbose_name=_("access code"),
         db_column="access_code_enc",
+        normalize=ClassModelManager.normalize_access_code,
     )
 
     access_code_validators: Validators = [
@@ -209,6 +242,13 @@ class Class(EncryptedModel):
 
     class Meta(TypedModelMeta):
         verbose_name_plural = "classes"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["_access_code_hash"],
+                condition=~models.Q(_access_code_hash=""),
+                name="unique_access_code_hash_non_empty",
+            ),
+        ]
 
     @property
     def dek_aead(self):
