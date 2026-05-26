@@ -410,8 +410,9 @@ class SchoolTeacherInvitation(EncryptedModel):
         # pylint: disable-next=import-outside-toplevel
         from .user import User
 
-        for validator in User.email_validators:
-            validator(value)
+        if value != "":
+            for validator in User.email_validators:
+                validator(value)
 
         EncryptedTextField.set(self, value, "_invited_teacher_email_enc")
 
@@ -462,9 +463,9 @@ class SchoolTeacherInvitation(EncryptedModel):
 
     def anonymise(self):
         """Anonymise the invitation."""
-        self.invited_teacher_first_name = uuid4().hex
-        self.invited_teacher_last_name = uuid4().hex
-        self.invited_teacher_email = uuid4().hex
+        self.invited_teacher_first_name = ""
+        self.invited_teacher_last_name = ""
+        self.invited_teacher_email = ""
         self.is_active = False
         self.save()
 

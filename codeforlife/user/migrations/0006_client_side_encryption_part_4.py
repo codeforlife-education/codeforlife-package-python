@@ -213,7 +213,6 @@ school_migrations = [
         model_name="school",
         name="_name_hash",
         field=Sha256Field(
-            unique=True,
             editable=False,
             max_length=64,
             verbose_name="name hash",

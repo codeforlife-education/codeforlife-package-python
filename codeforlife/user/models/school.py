@@ -69,7 +69,6 @@ class School(DataEncryptionKeyModel):
     _name_hash = Sha256Field(
         verbose_name=_("name hash"),
         db_column="name_hash",
-        unique=True,
         normalize=lambda name: SchoolModelManager.normalize_name(
             name, lower=True
         ),
