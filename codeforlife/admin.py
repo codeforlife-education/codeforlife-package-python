@@ -26,13 +26,15 @@ class HashSearchModelAdmin(ModelAdmin):
         may_have_duplicates = False
         if non_hash_fields:
             original_search_fields = self.search_fields
-            self.search_fields = tuple(non_hash_fields)
+            self.search_fields = tuple(non_hash_fields)  # type: ignore[misc]
             try:
                 non_hash_queryset, may_have_duplicates = (
                     super().get_search_results(request, queryset, search_term)
                 )
             finally:
-                self.search_fields = original_search_fields
+                self.search_fields = (  # type: ignore[misc]
+                    original_search_fields
+                )
 
         # Hash transforms should use the whole input, not `smart_split()` bits.
         hash_queryset = queryset.none()
