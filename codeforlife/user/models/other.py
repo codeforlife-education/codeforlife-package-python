@@ -8,7 +8,6 @@ integrated or removed in the new schema in the future.
 """
 
 import typing as t
-from uuid import uuid4
 
 from django.core.validators import MaxLengthValidator
 from django.db import models
@@ -18,6 +17,7 @@ from django.utils.translation import gettext_lazy as _
 from ...models import EncryptedModel
 from ...models.fields import EncryptedTextField, Sha256Field
 from ...models.fields.decorators import validated_field_setter
+from ...models.fields.utils import validate_value
 from ...types import Validators
 
 if t.TYPE_CHECKING:  # pragma: no cover
@@ -355,9 +355,7 @@ class SchoolTeacherInvitation(EncryptedModel):
         # pylint: disable-next=import-outside-toplevel
         from .user import User
 
-        for validator in User.first_name_validators:
-            validator(value)
-
+        validate_value(value, *User.first_name_validators)
         EncryptedTextField.set(self, value, "_invited_teacher_first_name_enc")
 
     # --------------------------------------------------------------------------
@@ -382,9 +380,7 @@ class SchoolTeacherInvitation(EncryptedModel):
         # pylint: disable-next=import-outside-toplevel
         from .user import User
 
-        for validator in User.last_name_validators:
-            validator(value)
-
+        validate_value(value, *User.last_name_validators)
         EncryptedTextField.set(self, value, "_invited_teacher_last_name_enc")
 
     # --------------------------------------------------------------------------
@@ -410,10 +406,7 @@ class SchoolTeacherInvitation(EncryptedModel):
         # pylint: disable-next=import-outside-toplevel
         from .user import User
 
-        if value != "":
-            for validator in User.email_validators:
-                validator(value)
-
+        validate_value(value, *User.email_validators, blank=True)
         EncryptedTextField.set(self, value, "_invited_teacher_email_enc")
 
     # --------------------------------------------------------------------------
