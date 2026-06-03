@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.36.1 (2026-06-03)
+
+### Bug Fixes
+
+- Upgrade pyjwt to 2.13.0
+  ([`5d11cf5`](https://github.com/ocadotechnology/codeforlife-package-python/commit/5d11cf5dbe64d2187de4405df053de31abb1a3f6))
+
+
 ## v0.36.0 (2026-05-21)
 
 ### Features
