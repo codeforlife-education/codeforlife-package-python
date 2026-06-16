@@ -156,7 +156,6 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
     _username_hash = Sha256Field(
         verbose_name=_("username hash"),
         db_column="username_hash",
-        unique=True,
     )
     _username_enc = EncryptedTextField(
         associated_data="username",

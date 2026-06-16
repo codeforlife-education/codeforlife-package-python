@@ -8,17 +8,6 @@ user_migrations = [
         model_name="user",
         name="_username_plain",
     ),
-    migrations.AlterField(
-        model_name="user",
-        name="_username_hash",
-        field=Sha256Field(
-            unique=True,
-            editable=False,
-            max_length=64,
-            verbose_name="username hash",
-            db_column="username_hash",
-        ),
-    ),
     # First name
     migrations.RemoveField(
         model_name="user",
@@ -54,17 +43,6 @@ school_teacher_invitation_migrations = [
     migrations.RemoveField(
         model_name="schoolteacherinvitation",
         name="_token_plain",
-    ),
-    migrations.AlterField(
-        model_name="schoolteacherinvitation",
-        name="_token_hash",
-        field=Sha256Field(
-            unique=True,
-            editable=False,
-            max_length=64,
-            verbose_name="token hash",
-            db_column="token_hash",
-        ),
     ),
     # First name
     migrations.RemoveField(

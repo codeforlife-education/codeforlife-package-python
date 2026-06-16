@@ -288,7 +288,6 @@ class SchoolTeacherInvitation(EncryptedModel):
     _token_hash = Sha256Field(
         verbose_name=_("token hash"),
         db_column="token_hash",
-        unique=True,
     )
     _token_enc = EncryptedTextField(
         associated_data="token",
