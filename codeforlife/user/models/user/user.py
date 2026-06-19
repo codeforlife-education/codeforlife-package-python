@@ -12,6 +12,7 @@ from django.conf import settings
 from django.contrib.auth.models import PermissionsMixin
 from django.contrib.auth.models import UserManager as _UserManager
 from django.contrib.auth.validators import UnicodeUsernameValidator
+from django.core.validators import MaxLengthValidator, validate_email
 from django.db import models
 from django.db.models.query import QuerySet
 from django.utils import timezone
@@ -20,6 +21,7 @@ from pyotp import TOTP
 
 from ....models import AbstractBaseUser, DataEncryptionKeyModel
 from ....models.fields import EncryptedTextField, Sha256Field
+from ....models.fields.decorators import validated_field_setter
 from ....types import Validators
 from ....validators import UnicodeAlphanumericCharSetValidator
 
@@ -33,21 +35,6 @@ if t.TYPE_CHECKING:  # pragma: no cover
     from ..teacher import Teacher
 else:
     TypedModelMeta = object
-
-
-# TODO: add to model validators in new schema.
-user_first_name_validators: Validators = [
-    UnicodeAlphanumericCharSetValidator(
-        spaces=True,
-        special_chars="-'",
-    )
-]
-user_last_name_validators: Validators = [
-    UnicodeAlphanumericCharSetValidator(
-        spaces=True,
-        special_chars="-'",
-    )
-]
 
 
 AnyUser = t.TypeVar("AnyUser", bound="User")
@@ -107,11 +94,11 @@ class UserManager(
 
     # pylint: disable=missing-function-docstring
 
-    # def get_by_natural_key(self, username):
-    #     return self.get(_username_hash__sha256=username)
+    def get_by_natural_key(self, username):
+        return self.get(_username_hash__sha256=username)
 
-    # async def aget_by_natural_key(self, username):
-    #     return await self.aget(_username_hash__sha256=username)
+    async def aget_by_natural_key(self, username):
+        return await self.aget(_username_hash__sha256=username)
 
     # pylint: enable=missing-function-docstring
 
@@ -142,19 +129,15 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
 
     associated_data = "user"
     field_aliases = {
-        "username": {"_username_plain", "_username_enc", "_username_hash"},
-        "first_name": {
-            "_first_name_plain",
-            "_first_name_enc",
-            "_first_name_hash",
-        },
-        "last_name": {"_last_name_plain", "_last_name_enc"},
-        "email": {"_email_plain", "_email_enc", "_email_hash"},
+        "username": {"_username_enc", "_username_hash"},
+        "first_name": {"_first_name_enc", "_first_name_hash"},
+        "last_name": {"_last_name_enc"},
+        "email": {"_email_enc", "_email_hash"},
     }
 
-    EMAIL_FIELD = "_email_plain"
-    USERNAME_FIELD = "_username_plain"
-    REQUIRED_FIELDS = ["_email_plain"]
+    EMAIL_FIELD = "email"
+    USERNAME_FIELD = "_username_hash"
+    REQUIRED_FIELDS = ["email"]
     credential_fields = frozenset(["email", "password"])
 
     _password: t.Optional[str]
@@ -174,24 +157,16 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
         verbose_name=_("username hash"),
         db_column="username_hash",
     )
-    _username_plain = models.CharField(
-        _("username"),
-        max_length=150,
-        unique=True,
-        help_text=_(
-            "Required. 150 characters or fewer. "
-            "Letters, digits and @/./+/-/_ only."
-        ),
-        validators=[UnicodeUsernameValidator()],
-        error_messages={
-            "unique": _("A user with that username already exists."),
-        },
-    )
     _username_enc = EncryptedTextField(
         associated_data="username",
         db_column="username_enc",
         verbose_name=_("username"),
     )
+
+    username_validators: Validators = [
+        MaxLengthValidator(150),
+        UnicodeUsernameValidator(),
+    ]
 
     @property
     def username(self):
@@ -199,9 +174,9 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
         return EncryptedTextField.get(self, "_username_enc")
 
     @username.setter
+    @validated_field_setter(*username_validators)
     def username(self, value: str):
         """Set the user's username."""
-        self._username_plain = value
         EncryptedTextField.set(self, value, "_username_enc")
         Sha256Field.set(self, value, "_username_hash")
 
@@ -216,9 +191,6 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
             first_name, lower=True
         ),
     )
-    _first_name_plain = models.CharField(
-        _("first name"), max_length=150, blank=True
-    )
     _first_name_enc = EncryptedTextField(
         associated_data="first_name",
         db_column="first_name_enc",
@@ -228,17 +200,23 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
         ),
     )
 
+    first_name_validators: Validators = [
+        MaxLengthValidator(150),
+        UnicodeAlphanumericCharSetValidator(
+            spaces=True,
+            special_chars="-'",
+        ),
+    ]
+
     @property
     def first_name(self):
         """The user's first name."""
         return EncryptedTextField.get(self, "_first_name_enc")
 
     @first_name.setter
+    @validated_field_setter(*first_name_validators)
     def first_name(self, value: str):
         """Set the user's first name."""
-        self._first_name_plain = UserManager.normalize_first_name(
-            value, lower=False
-        )
         EncryptedTextField.set(self, value, "_first_name_enc")
         Sha256Field.set(self, value, "_first_name_hash")
 
@@ -246,14 +224,19 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
     # Last name
     # --------------------------------------------------------------------------
 
-    _last_name_plain = models.CharField(
-        _("last name"), max_length=150, blank=True
-    )
     _last_name_enc = EncryptedTextField(
         associated_data="last_name",
         db_column="last_name_enc",
         verbose_name=_("last name"),
     )
+
+    last_name_validators: Validators = [
+        MaxLengthValidator(150),
+        UnicodeAlphanumericCharSetValidator(
+            spaces=True,
+            special_chars="-'",
+        ),
+    ]
 
     @property
     def last_name(self):
@@ -261,9 +244,9 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
         return EncryptedTextField.get(self, "_last_name_enc")
 
     @last_name.setter
+    @validated_field_setter(*last_name_validators, blank=True)
     def last_name(self, value: str):
         """Set the user's last name."""
-        self._last_name_plain = value
         EncryptedTextField.set(self, value, "_last_name_enc")
 
     # --------------------------------------------------------------------------
@@ -275,7 +258,6 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
         db_column="email_hash",
         normalize=UserManager.normalize_email,
     )
-    _email_plain = models.EmailField(_("email address"), blank=True)
     _email_enc = EncryptedTextField(
         associated_data="email",
         db_column="email_enc",
@@ -283,15 +265,17 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
         normalize=UserManager.normalize_email,
     )
 
+    email_validators: Validators = [validate_email, MaxLengthValidator(254)]
+
     @property
     def email(self):
         """The user's email address."""
         return EncryptedTextField.get(self, "_email_enc")
 
     @email.setter
+    @validated_field_setter(*email_validators, blank=True)
     def email(self, value: str):
         """Set the user's email address."""
-        self._email_plain = self.__class__.objects.normalize_email(value)
         EncryptedTextField.set(self, value, "_email_enc")
         Sha256Field.set(self, value, "_email_hash")
 

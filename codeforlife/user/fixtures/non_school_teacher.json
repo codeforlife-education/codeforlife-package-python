@@ -5,15 +5,11 @@
     "fields": {
       "_email_enc": "ZmFrZV9lbmM66eERLU4ywXZv8HpJEjyu3AJj13quStWLJbiKre21Mggqgh81l+viMglF/QBQ4fFM",
       "_email_hash": "7cc99dd2f335a068ac421d2cec8f04687fa34d37d313718f56ebc6b6c3c09d2c",
-      "_email_plain": "teacher@noschool.com",
       "_first_name_enc": "ZmFrZV9lbmM6naDBVRP/vWnfgWPmHiirA6COL71ARyfg0pnyeQ3DYlU=",
       "_first_name_hash": "d0118d7d585c39fb03017af6692eb181443402f0cb216e1541ed2c4a219955e0",
-      "_first_name_plain": "John",
       "_last_name_enc": "ZmFrZV9lbmM6BVE1wAneS3Mcvb4o3lxNbaV8U2yFpq7pBiP5ai8FWA==",
-      "_last_name_plain": "Doe",
       "_username_enc": "ZmFrZV9lbmM6MHbn0VZ2WdBaxfuGEuU3zzyBsvI2NKWmKsqaipMhi1ie0aNmcBfnZqPRYM0bqM/q",
       "_username_hash": "7cc99dd2f335a068ac421d2cec8f04687fa34d37d313718f56ebc6b6c3c09d2c",
-      "_username_plain": "teacher@noschool.com",
       "dek": "ZmFrZV9lbmM6t5dLPgCaHfVJ+ZUMvIpOeZEo7pODNwUpd8exyX9ilp3COjdmNReUbCIeYVVyppQpim4aOw3EaOo6AInr",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }
@@ -40,15 +36,11 @@
     "fields": {
       "_email_enc": "ZmFrZV9lbmM6ymTYrJvQBbledTYMf1QxnBLLJKtZOAY2eSrLKWn1Ku9Bt8UfjyAv9Kdcq22Nlw4KEUXUF9B+5uWFrII=",
       "_email_hash": "7f34bbe92504e0ca5c2235f2f64bf2686a7d040690a45948074247cad2eb5c71",
-      "_email_plain": "unverified.teacher@noschool.com",
       "_first_name_enc": "ZmFrZV9lbmM6TYaKDI0fEu4AoVsf35i4onELsjpPePS3+0aTi7bJ/cz6Uu6Cr3I=",
       "_first_name_hash": "7b5f659dd23dbcb84e56645e523c2dc962e4a99120c99bc3e99d361f85028605",
-      "_first_name_plain": "Unverified",
       "_last_name_enc": "ZmFrZV9lbmM6045ESPZ+3oNUHhw8P27QOxgaRxBEbAkT1nI9LGBZeTcrWqU=",
-      "_last_name_plain": "Teacher",
       "_username_enc": "ZmFrZV9lbmM6kP4+WygnDIbz2v7bQVTJ9A5dJ/ngwqjhV1FG727D9fVpjRBqpZR7ZzDCpJLKGL+O/ErnM/v9cQjyRRA=",
       "_username_hash": "7f34bbe92504e0ca5c2235f2f64bf2686a7d040690a45948074247cad2eb5c71",
-      "_username_plain": "unverified.teacher@noschool.com",
       "dek": "ZmFrZV9lbmM6CxNXI5JH7pjDVV3SMaAS/lVuDNePBDKJPAiV4Gi/4iVcgxG6hvQ20IJX34nFw/U4mHaHCpTwSgWfSydl",
       "password": "pbkdf2_sha256$720000$Jp50WPBA6WZImUIpj3UcVm$OJWB8+UoW5lLaUkHLYo0cKgMkyRI6qnqVOWxYEsi9T0="
     }

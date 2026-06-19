@@ -26,14 +26,7 @@ from .non_school_teacher import (
 from .school_teacher import SchoolTeacherUser, SchoolTeacherUserManager
 from .student import StudentUser, StudentUserManager
 from .teacher import TeacherUser, TeacherUserManager
-from .user import (
-    AnyUser,
-    User,
-    UserManager,
-    UserProfile,
-    user_first_name_validators,
-    user_last_name_validators,
-)
+from .user import AnyUser, User, UserManager, UserProfile
 
 # pylint: disable-next=invalid-name
 TypedUser = t.Union[

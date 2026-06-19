@@ -238,3 +238,13 @@ TEMPLATES = [
         },
     },
 ]
+
+# System checks
+# https://docs.djangoproject.com/en/5.1/ref/checks/
+
+SILENCED_SYSTEM_CHECKS = [
+    # The `User` model's `_username_hash` is set to `unique=False` (implicitly)
+    # but there's a unique constraint in the model's meta on the condition that
+    # the `_username_hash` is not empty ("").
+    "auth.W004",
+]

@@ -33,7 +33,7 @@ class StudentModelManager(models.Manager):
         while True:
             random_username = uuid4().hex[:30]  # generate a random username
             if not User.objects.filter(
-                _username_plain=random_username
+                _username_hash__sha256=random_username
             ).exists():
                 return random_username
 

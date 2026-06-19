@@ -5,6 +5,7 @@ Created on 20/02/2024 at 15:37:52(+00:00).
 
 import typing as t
 
+from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -12,6 +13,7 @@ from django_countries.fields import CountryField
 
 from ...models import DataEncryptionKeyModel
 from ...models.fields import EncryptedTextField, Sha256Field
+from ...models.fields.decorators import validated_field_setter
 from ...types import Validators
 from ...validators import UnicodeAlphanumericCharSetValidator
 
@@ -21,15 +23,6 @@ if t.TYPE_CHECKING:  # pragma: no cover
     from django_stubs_ext.db.models import TypedModelMeta
 else:
     TypedModelMeta = object
-
-
-# TODO: add to School.name field-validators in new schema.
-school_name_validators: Validators = [
-    UnicodeAlphanumericCharSetValidator(
-        spaces=True,
-        special_chars="'.",
-    )
-]
 
 
 class SchoolModelManager(DataEncryptionKeyModel.Manager["School"]):
@@ -65,7 +58,7 @@ class School(DataEncryptionKeyModel):
 
     associated_data = "school"
     field_aliases = {
-        "name": {"_name_plain", "_name_enc", "_name_hash"},
+        "name": {"_name_hash", "_name_enc"},
     }
 
     # --------------------------------------------------------------------------
@@ -80,11 +73,6 @@ class School(DataEncryptionKeyModel):
             name, lower=True
         ),
     )
-    _name_plain: str
-    _name_plain = models.CharField(  # type: ignore[assignment]
-        max_length=200,
-        unique=True,
-    )
     _name_enc = EncryptedTextField(
         associated_data="name",
         verbose_name=_("name"),
@@ -94,15 +82,23 @@ class School(DataEncryptionKeyModel):
         ),
     )
 
+    name_validators: Validators = [
+        MaxLengthValidator(200),
+        UnicodeAlphanumericCharSetValidator(
+            spaces=True,
+            special_chars="'.",
+        ),
+    ]
+
     @property
     def name(self):
         """Get the school's name."""
         return EncryptedTextField.get(self, "_name_enc")
 
     @name.setter
+    @validated_field_setter(*name_validators)
     def name(self, value: str):
         """Set the school's name."""
-        self._name_plain = SchoolModelManager.normalize_name(value, lower=False)
         EncryptedTextField.set(self, value, "_name_enc")
         Sha256Field.set(self, value, "_name_hash")
 

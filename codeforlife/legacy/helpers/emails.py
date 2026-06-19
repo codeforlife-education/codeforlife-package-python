@@ -378,7 +378,7 @@ def update_indy_email(user, request, data):
 
     if new_email != "" and new_email != user.email:
         changing_email = True
-        users_with_email = User.objects.filter(_email_plain=new_email)
+        users_with_email = User.objects.filter(_email_hash__sha256=new_email)
 
         send_dotdigital_email(
             campaign_ids["email_change_notification"],
@@ -399,7 +399,7 @@ def update_email(user: Teacher or Student, request, data):
 
     if new_email != "" and new_email != user.new_user.email:
         changing_email = True
-        users_with_email = User.objects.filter(_email_plain=new_email)
+        users_with_email = User.objects.filter(_email_hash__sha256=new_email)
 
         send_dotdigital_email(
             campaign_ids["email_change_notification"],

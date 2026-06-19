@@ -8,14 +8,17 @@ integrated or removed in the new schema in the future.
 """
 
 import typing as t
-from uuid import uuid4
 
+from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from ...models import EncryptedModel
 from ...models.fields import EncryptedTextField, Sha256Field
+from ...models.fields.decorators import validated_field_setter
+from ...models.fields.utils import validate_value
+from ...types import Validators
 
 if t.TYPE_CHECKING:  # pragma: no cover
     from datetime import datetime
@@ -272,19 +275,10 @@ class SchoolTeacherInvitation(EncryptedModel):
 
     associated_data = "school_teacher_invitation"
     field_aliases = {
-        "token": {"_token_plain", "_token_enc", "_token_hash"},
-        "invited_teacher_first_name": {
-            "_invited_teacher_first_name_plain",
-            "_invited_teacher_first_name_enc",
-        },
-        "invited_teacher_last_name": {
-            "_invited_teacher_last_name_plain",
-            "_invited_teacher_last_name_enc",
-        },
-        "invited_teacher_email": {
-            "_invited_teacher_email_plain",
-            "_invited_teacher_email_enc",
-        },
+        "token": {"_token_enc", "_token_hash"},
+        "invited_teacher_first_name": {"_invited_teacher_first_name_enc"},
+        "invited_teacher_last_name": {"_invited_teacher_last_name_enc"},
+        "invited_teacher_email": {"_invited_teacher_email_enc"},
     }
 
     # --------------------------------------------------------------------------
@@ -295,13 +289,13 @@ class SchoolTeacherInvitation(EncryptedModel):
         verbose_name=_("token hash"),
         db_column="token_hash",
     )
-    _token_plain: str
-    _token_plain = models.CharField(max_length=88)  # type: ignore[assignment]
     _token_enc = EncryptedTextField(
         associated_data="token",
         verbose_name=_("token"),
         db_column="token_enc",
     )
+
+    token_validators: Validators = [MaxLengthValidator(88)]
 
     @property
     def token(self):
@@ -309,9 +303,9 @@ class SchoolTeacherInvitation(EncryptedModel):
         return EncryptedTextField.get(self, "_token_enc")
 
     @token.setter
+    @validated_field_setter(*token_validators)
     def token(self, value: str):
         """Sets the token value."""
-        self._token_plain = value
         EncryptedTextField.set(self, value, "_token_enc")
         Sha256Field.set(self, value, "_token_hash")
 
@@ -337,11 +331,6 @@ class SchoolTeacherInvitation(EncryptedModel):
     # First name
     # --------------------------------------------------------------------------
 
-    _invited_teacher_first_name_plain: str
-    # pylint: disable-next=line-too-long
-    _invited_teacher_first_name_plain = models.CharField(  # type: ignore[assignment]
-        max_length=150
-    )  # Same as User model
     _invited_teacher_first_name_enc = EncryptedTextField(
         associated_data="invited_teacher_first_name",
         verbose_name=_("invited teacher first name"),
@@ -361,22 +350,17 @@ class SchoolTeacherInvitation(EncryptedModel):
     @invited_teacher_first_name.setter
     def invited_teacher_first_name(self, value: str):
         """Sets the invited teacher first name value."""
-        self._invited_teacher_first_name_plain = (
-            SchoolTeacherInvitationModelManager.normalize_first_name(
-                value, lower=False
-            )
-        )
+        # Importing locally to avoid circular import issues.
+        # pylint: disable-next=import-outside-toplevel
+        from .user import User
+
+        validate_value(value, *User.first_name_validators)
         EncryptedTextField.set(self, value, "_invited_teacher_first_name_enc")
 
     # --------------------------------------------------------------------------
     # Last name
     # --------------------------------------------------------------------------
 
-    _invited_teacher_last_name_plain: str
-    # pylint: disable-next=line-too-long
-    _invited_teacher_last_name_plain = models.CharField(  # type: ignore[assignment]
-        max_length=150
-    )  # Same as User model
     _invited_teacher_last_name_enc = EncryptedTextField(
         associated_data="invited_teacher_last_name",
         verbose_name=_("invited teacher last name"),
@@ -391,18 +375,17 @@ class SchoolTeacherInvitation(EncryptedModel):
     @invited_teacher_last_name.setter
     def invited_teacher_last_name(self, value: str):
         """Sets the invited teacher last name value."""
-        self._invited_teacher_last_name_plain = value
+        # Importing locally to avoid circular import issues.
+        # pylint: disable-next=import-outside-toplevel
+        from .user import User
+
+        validate_value(value, *User.last_name_validators)
         EncryptedTextField.set(self, value, "_invited_teacher_last_name_enc")
 
     # --------------------------------------------------------------------------
     # Email
     # --------------------------------------------------------------------------
 
-    # TODO: Switch to a CharField to be able to hold hashed value
-    _invited_teacher_email_plain: str
-    _invited_teacher_email_plain = (
-        models.EmailField()  # type: ignore[assignment]
-    )  # Same as User model
     _invited_teacher_email_enc = EncryptedTextField(
         associated_data="invited_teacher_email",
         verbose_name=_("invited teacher email"),
@@ -418,9 +401,11 @@ class SchoolTeacherInvitation(EncryptedModel):
     @invited_teacher_email.setter
     def invited_teacher_email(self, value: str):
         """Sets the invited teacher email value."""
-        self._invited_teacher_email_plain = (
-            SchoolTeacherInvitationModelManager.normalize_email(value)
-        )
+        # Importing locally to avoid circular import issues.
+        # pylint: disable-next=import-outside-toplevel
+        from .user import User
+
+        validate_value(value, *User.email_validators, blank=True)
         EncryptedTextField.set(self, value, "_invited_teacher_email_enc")
 
     # --------------------------------------------------------------------------
@@ -470,9 +455,9 @@ class SchoolTeacherInvitation(EncryptedModel):
 
     def anonymise(self):
         """Anonymise the invitation."""
-        self.invited_teacher_first_name = uuid4().hex
-        self.invited_teacher_last_name = uuid4().hex
-        self.invited_teacher_email = uuid4().hex
+        self.invited_teacher_first_name = ""
+        self.invited_teacher_last_name = ""
+        self.invited_teacher_email = ""
         self.is_active = False
         self.save()
 

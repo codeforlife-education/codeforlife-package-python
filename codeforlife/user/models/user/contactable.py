@@ -7,8 +7,6 @@ Created on 05/02/2024 at 09:50:04(+00:00).
 
 import typing as t
 
-from django.db.models.query import QuerySet
-
 from .... import mail
 from .user import User, UserManager
 
@@ -22,10 +20,7 @@ AnyUser = t.TypeVar("AnyUser", bound=User)
 
 # pylint: disable-next=missing-class-docstring,too-few-public-methods
 class ContactableUserManager(UserManager[AnyUser], t.Generic[AnyUser]):
-    def filter_users(self, queryset: QuerySet[User]):
-        return queryset.exclude(_email_plain__isnull=True).exclude(
-            _email_plain=""
-        )
+    pass
 
 
 # pylint: disable-next=too-many-ancestors
