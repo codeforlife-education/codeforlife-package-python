@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.37.1 (2026-06-19)
+
+### Bug Fixes
+
+- Remove enc django commands
+  ([`03746af`](https://github.com/ocadotechnology/codeforlife-package-python/commit/03746af1159dd4938d300317be0d4bd417dda1a4))
+
+
 ## v0.37.0 (2026-06-19)
 
 ### Features
