@@ -15,7 +15,7 @@ owned by Ocado Innovation Limited.
 
 The source code of the Code for Life portal, the Rapid Router application
 and the Kurono/aimmo application are [licensed under the GNU Affero General
-Public License](https://github.com/ocadotechnology/codeforlife-workspace/blob/main/LICENSE.md).
+Public License](https://github.com/codeforlife-education/codeforlife-workspace/blob/main/LICENSE.md).
 All other assets including images, logos, sounds etc., are not covered by
 this licence and no-one may copy, modify, distribute, show in public or
 create any derivative work from these assets.
@@ -74,6 +74,6 @@ Versions are determined using the [semantic-release commit message format](https
 
 If a new version is successfully released, it will create:
 
-1. A new tag [on GitHub](https://github.com/ocadotechnology/codeforlife-package-python/tags).
-1. A new release [on GitHub](https://github.com/ocadotechnology/codeforlife-package-python/releases).
+1. A new tag [on GitHub](https://github.com/codeforlife-education/codeforlife-package-python/tags).
+1. A new release [on GitHub](https://github.com/codeforlife-education/codeforlife-package-python/releases).
 1. A new release [on PyPI](https://pypi.org/project/codeforlife/#history).

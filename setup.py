@@ -116,7 +116,7 @@ setup(
     description="Code for Life's common code.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/ocadotechnology/codeforlife-package-python",
+    url="https://github.com/codeforlife-education/codeforlife-package-python",
     packages=find_packages(include=["codeforlife", "codeforlife.*"]),
     package_dir={"codeforlife": "codeforlife"},
     cmdclass={"build_py": BuildPy},
