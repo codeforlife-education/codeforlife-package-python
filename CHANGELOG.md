@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.37.3 (2026-07-14)
+
+### Bug Fixes
+
+- Upgrade to django 5.2.16
+  ([`c7c4747`](https://github.com/codeforlife-education/codeforlife-package-python/commit/c7c474762de7f19f387cf148a394145a60789740))
+
+
 ## v0.37.2 (2026-07-07)
 
 ### Bug Fixes
