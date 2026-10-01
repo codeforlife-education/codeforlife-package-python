@@ -24,9 +24,7 @@ def set_hash_fields_to_empty(apps: StateApps, _):
         _username_hash="", _email_hash="", _first_name_hash=""
     )
 
-    Class.objects.filter(is_not_active).update(
-        _name_enc=b"", _name_hash="", _access_code_enc=b"", _access_code_hash=""
-    )
+    Class.objects.filter(is_not_active).update(_name_enc=b"", _name_hash="")
 
     School.objects.filter(is_not_active).update(_name_hash="")
 
@@ -63,28 +61,6 @@ class Migration(migrations.Migration):
                     ("is_active", True), ("_name_hash", ""), _connector="OR"
                 ),
                 name="klass__name_hash_non_empty_when_inactive",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="class",
-            constraint=CheckConstraint(
-                condition=Q(
-                    ("is_active", True),
-                    ("_access_code_enc", b""),
-                    _connector="OR",
-                ),
-                name="klass__access_code_enc_non_empty_when_inactive",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="class",
-            constraint=CheckConstraint(
-                condition=Q(
-                    ("is_active", True),
-                    ("_access_code_hash", ""),
-                    _connector="OR",
-                ),
-                name="klass__access_code_hash_non_empty_when_inactive",
             ),
         ),
         migrations.AddConstraint(
