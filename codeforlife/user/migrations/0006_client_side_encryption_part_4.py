@@ -1,7 +1,5 @@
 from django.db import migrations
 
-from ...models.fields import EncryptedTextField, Sha256Field
-
 user_migrations = [
     # Username
     migrations.RemoveField(

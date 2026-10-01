@@ -139,6 +139,10 @@ class School(DataEncryptionKeyModel):
                 fields=["_name_hash"],
                 name="unique_name_hash_non_empty",
             ),
+            models.CheckConstraint(
+                condition=models.Q(is_active=True) | models.Q(_name_hash=""),
+                name="school__name_hash_non_empty_when_inactive",
+            ),
         ]
 
     def __str__(self):
@@ -168,4 +172,5 @@ class School(DataEncryptionKeyModel):
         """Anonymize the school."""
         self.dek = None
         self.is_active = False
-        self.save(update_fields=["dek", "is_active"])
+        self._name_hash = ""
+        self.save(update_fields=["dek", "is_active", "_name_hash"])

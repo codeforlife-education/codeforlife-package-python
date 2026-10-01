@@ -439,6 +439,13 @@ class SchoolTeacherInvitation(EncryptedModel):
                 fields=["_token_hash"],
                 name="unique_token_hash_non_empty",
             ),
+            models.CheckConstraint(
+                condition=models.Q(is_active=True) | models.Q(_token_hash=""),
+                name=(
+                    "school_teacher_invitation__"
+                    "token_hash_non_empty_when_inactive"
+                ),
+            ),
         ]
 
     @property
@@ -458,8 +465,17 @@ class SchoolTeacherInvitation(EncryptedModel):
         self.invited_teacher_first_name = ""
         self.invited_teacher_last_name = ""
         self.invited_teacher_email = ""
+        self._token_hash = ""
         self.is_active = False
-        self.save()
+        self.save(
+            update_fields=[
+                "invited_teacher_first_name",
+                "invited_teacher_last_name",
+                "invited_teacher_email",
+                "_token_hash",
+                "is_active",
+            ]
+        )
 
     @property
     def dek_aead(self):
