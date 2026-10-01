@@ -311,6 +311,22 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
                 fields=["_username_hash"],
                 name="unique_username_hash_non_empty",
             ),
+            models.CheckConstraint(
+                condition=models.Q(is_active=True) | models.Q(_email_hash=""),
+                name="user__email_hash_non_empty_when_inactive",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(is_active=True) | models.Q(_username_hash="")
+                ),
+                name="user__username_hash_non_empty_when_inactive",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(is_active=True) | models.Q(_first_name_hash="")
+                ),
+                name="user__first_name_hash_non_empty_when_inactive",
+            ),
         ]
 
     # TODO: remove in new schema
@@ -427,7 +443,18 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
         """Anonymize the user."""
         self.dek = None
         self.is_active = False
-        self.save(update_fields=["dek", "is_active"])
+        self._username_hash = ""
+        self._email_hash = ""
+        self._first_name_hash = ""
+        self.save(
+            update_fields=[
+                "dek",
+                "is_active",
+                "_username_hash",
+                "_email_hash",
+                "_first_name_hash",
+            ]
+        )
 
         # self.userprofile.google_refresh_token = None
         # self.userprofile.google_sub = None
