@@ -986,10 +986,10 @@
     "pk": 20,
     "fields": {
       "_first_name_enc": "ZmFrZV9lbmM6kEW6JpB05mjWAPE/xrxMrbFNoyD6ZBNVl+YCZI/q3+LRROg=",
-      "_first_name_hash": "1dbd289e95b4925fc85eff99d7e879b2033f60182e05872f8665ff271d0d337c",
+      "_first_name_hash": "",
       "_last_name_enc": "ZmFrZV9lbmM6gwxaGy9/aDQWDEVUwUverJ6wmk3ohaTkvF5GYq6koNg=",
       "_username_enc": "ZmFrZV9lbmM6kUOy1ae7Y1ElSiAiDXnKIZxPkOs1saBSjmH+UCEThmkOR7lKe9Nlmza/K+mW1Slr0UutzlVaqMLU3yWT",
-      "_username_hash": "daa37b0878d74480285044dccc67750ad597b99719dc7323462cbe16e0b0271d",
+      "_username_hash": "",
       "date_joined": "2026-02-04T16:02:37.614Z",
       "dek": "ZmFrZV9lbmM6Ct68dRt74lesvjRcTVtlbUlPC8xt85anig+MaarMMZAUvcFmkJmno57KkQUR8S5/o5ElV9Bpn3RDpxeS",
       "groups": [],

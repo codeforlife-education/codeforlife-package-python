@@ -30,12 +30,7 @@ def set_hash_fields_to_empty(apps: StateApps, _):
 
     School.objects.filter(is_not_active).update(_name_hash="")
 
-    SchoolTeacherInvitation.objects.filter(is_not_active).update(
-        invited_teacher_first_name="",
-        invited_teacher_last_name="",
-        invited_teacher_email="",
-        _token_hash="",
-    )
+    SchoolTeacherInvitation.objects.filter(is_not_active).update(_token_hash="")
 
 
 class Migration(migrations.Migration):
