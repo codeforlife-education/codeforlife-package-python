@@ -234,10 +234,18 @@ class Class(EncryptedModel):
     def anonymise(self):
         """Anonymise the class."""
         self.is_active = False
+        self._name_enc = b""
         self._name_hash = ""
+        self._access_code_enc = b""
         self._access_code_hash = ""
         self.save(
-            update_fields=["is_active", "_name_hash", "_access_code_hash"]
+            update_fields=[
+                "is_active",
+                "_name_enc",
+                "_name_hash",
+                "_access_code_enc",
+                "_access_code_hash",
+            ]
         )
 
         # Remove independent students' requests to join this class
@@ -253,8 +261,18 @@ class Class(EncryptedModel):
                 name="unique_access_code_hash_non_empty",
             ),
             models.CheckConstraint(
+                condition=models.Q(is_active=True) | models.Q(_name_enc=b""),
+                name="klass__name_enc_non_empty_when_inactive",
+            ),
+            models.CheckConstraint(
                 condition=models.Q(is_active=True) | models.Q(_name_hash=""),
                 name="klass__name_hash_non_empty_when_inactive",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(is_active=True) | models.Q(_access_code_enc=b"")
+                ),
+                name="klass__access_code_enc_non_empty_when_inactive",
             ),
             models.CheckConstraint(
                 condition=(

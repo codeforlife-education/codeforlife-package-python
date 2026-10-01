@@ -25,12 +25,17 @@ def set_hash_fields_to_empty(apps: StateApps, _):
     )
 
     Class.objects.filter(is_not_active).update(
-        _name_hash="", _access_code_hash=""
+        _name_enc=b"", _name_hash="", _access_code_enc=b"", _access_code_hash=""
     )
 
     School.objects.filter(is_not_active).update(_name_hash="")
 
-    SchoolTeacherInvitation.objects.filter(is_not_active).update(_token_hash="")
+    SchoolTeacherInvitation.objects.filter(is_not_active).update(
+        _invited_teacher_first_name_enc=b"",
+        _invited_teacher_last_name_enc=b"",
+        _invited_teacher_email_enc=b"",
+        _token_hash="",
+    )
 
 
 class Migration(migrations.Migration):
@@ -46,9 +51,29 @@ class Migration(migrations.Migration):
             model_name="class",
             constraint=CheckConstraint(
                 condition=Q(
+                    ("is_active", True), ("_name_enc", b""), _connector="OR"
+                ),
+                name="klass__name_enc_non_empty_when_inactive",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="class",
+            constraint=CheckConstraint(
+                condition=Q(
                     ("is_active", True), ("_name_hash", ""), _connector="OR"
                 ),
                 name="klass__name_hash_non_empty_when_inactive",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="class",
+            constraint=CheckConstraint(
+                condition=Q(
+                    ("is_active", True),
+                    ("_access_code_enc", b""),
+                    _connector="OR",
+                ),
+                name="klass__access_code_enc_non_empty_when_inactive",
             ),
         ),
         migrations.AddConstraint(
@@ -69,6 +94,39 @@ class Migration(migrations.Migration):
                     ("is_active", True), ("_name_hash", ""), _connector="OR"
                 ),
                 name="school__name_hash_non_empty_when_inactive",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="schoolteacherinvitation",
+            constraint=CheckConstraint(
+                condition=Q(
+                    ("is_active", True),
+                    ("_invited_teacher_first_name_enc", b""),
+                    _connector="OR",
+                ),
+                name="school_teacher_invitation__invited_teacher_first_name_enc_non_empty_when_inactive",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="schoolteacherinvitation",
+            constraint=CheckConstraint(
+                condition=Q(
+                    ("is_active", True),
+                    ("_invited_teacher_last_name_enc", b""),
+                    _connector="OR",
+                ),
+                name="school_teacher_invitation__invited_teacher_last_name_enc_non_empty_when_inactive",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="schoolteacherinvitation",
+            constraint=CheckConstraint(
+                condition=Q(
+                    ("is_active", True),
+                    ("_invited_teacher_email_enc", b""),
+                    _connector="OR",
+                ),
+                name="school_teacher_invitation__invited_teacher_email_enc_non_empty_when_inactive",
             ),
         ),
         migrations.AddConstraint(

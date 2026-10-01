@@ -440,6 +440,36 @@ class SchoolTeacherInvitation(EncryptedModel):
                 name="unique_token_hash_non_empty",
             ),
             models.CheckConstraint(
+                condition=(
+                    models.Q(is_active=True)
+                    | models.Q(_invited_teacher_first_name_enc=b"")
+                ),
+                name=(
+                    "school_teacher_invitation__"
+                    "invited_teacher_first_name_enc_non_empty_when_inactive"
+                ),
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(is_active=True)
+                    | models.Q(_invited_teacher_last_name_enc=b"")
+                ),
+                name=(
+                    "school_teacher_invitation__"
+                    "invited_teacher_last_name_enc_non_empty_when_inactive"
+                ),
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(is_active=True)
+                    | models.Q(_invited_teacher_email_enc=b"")
+                ),
+                name=(
+                    "school_teacher_invitation__"
+                    "invited_teacher_email_enc_non_empty_when_inactive"
+                ),
+            ),
+            models.CheckConstraint(
                 condition=models.Q(is_active=True) | models.Q(_token_hash=""),
                 name=(
                     "school_teacher_invitation__"
@@ -462,16 +492,16 @@ class SchoolTeacherInvitation(EncryptedModel):
 
     def anonymise(self):
         """Anonymise the invitation."""
-        self.invited_teacher_first_name = ""
-        self.invited_teacher_last_name = ""
-        self.invited_teacher_email = ""
+        self._invited_teacher_first_name_enc = b""
+        self._invited_teacher_last_name_enc = b""
+        self._invited_teacher_email_enc = b""
         self._token_hash = ""
         self.is_active = False
         self.save(
             update_fields=[
-                "invited_teacher_first_name",
-                "invited_teacher_last_name",
-                "invited_teacher_email",
+                "_invited_teacher_first_name_enc",
+                "_invited_teacher_last_name_enc",
+                "_invited_teacher_email_enc",
                 "_token_hash",
                 "is_active",
             ]
