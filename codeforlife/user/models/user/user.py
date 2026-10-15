@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth.models import PermissionsMixin
 from django.contrib.auth.models import UserManager as _UserManager
-from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.core.validators import MaxLengthValidator, validate_email
 from django.db import models
 from django.db.models.query import QuerySet
@@ -163,10 +162,7 @@ class User(AbstractBaseUser, PermissionsMixin, DataEncryptionKeyModel):
         verbose_name=_("username"),
     )
 
-    username_validators: Validators = [
-        MaxLengthValidator(150),
-        UnicodeUsernameValidator(),
-    ]
+    username_validators: Validators = [MaxLengthValidator(150)]
 
     @property
     def username(self):
