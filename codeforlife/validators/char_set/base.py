@@ -48,7 +48,7 @@ class CharSetValidatorBuilder(CharSetValidator):
         spaces: bool = False,
         special_chars: str = "",
     ):
-        message = f"can only contain: ${description}"
+        message = f"can only contain: {description}"
 
         if spaces:
             char_set += " "
